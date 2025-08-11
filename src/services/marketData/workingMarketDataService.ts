@@ -38,7 +38,7 @@ class WorkingMarketDataService {
         console.error(`❌ Supabase function error for ${symbol}:`, error);
         
         // Try direct fetch as fallback
-        const directUrl = `https://ftoszibvpzniqstjjsgn.supabase.co/functions/v1/real-market-data`;
+        const directUrl = `https://hutmrnnfwxzflftwvmha.supabase.co`;
         const directResponse = await fetch(directUrl, {
           method: 'POST',
           headers: {
