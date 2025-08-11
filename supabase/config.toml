@@ -1,0 +1,13 @@
+project_id = "hutmrnnfwxzflftwvmha"
+
+[functions.ai-chat]
+verify_jwt = true
+
+[functions.openai-realtime]
+verify_jwt = true
+
+[functions.get-api-key]
+verify_jwt = true
+
+[functions.ai-analysis]
+verify_jwt = false

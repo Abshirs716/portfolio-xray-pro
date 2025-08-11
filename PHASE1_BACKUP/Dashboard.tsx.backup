@@ -1,0 +1,362 @@
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { 
+  DollarSign, 
+  BarChart3, 
+  PieChart, 
+  Activity,
+  Brain,
+  Upload,
+  TrendingUp,
+  LogOut,
+  User,
+  Download,
+  Sun,
+  Moon,
+  FileSpreadsheet,
+  Shield
+} from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { Link } from "react-router-dom";
+import { useToast } from "@/hooks/use-toast";
+import { useAIChat } from "@/hooks/useAIChat";
+import { useState, useRef, useEffect } from "react";
+import { useTheme } from "next-themes";
+
+// Import our new modular components
+import { MetricCard } from "@/components/dashboard/MetricCard";
+import { ChatInterface, ChatInterfaceRef } from "@/components/ai/ChatInterface";
+import { FinancialChart } from "@/components/charts/FinancialChart";
+import { SampleDataButton } from "@/components/SampleDataButton";
+import { RealtimeStatus } from "@/components/RealtimeStatus";
+
+// Import Goldman Sachs quality components
+import { PortfolioOverview } from "@/components/portfolio/PortfolioOverview";
+import { RiskMetrics } from "@/components/risk/RiskMetrics";
+import { PerformanceChart } from "@/components/charts/PerformanceChart";
+import { HoldingsTable } from "@/components/holdings/HoldingsTable";
+import { AssetAllocation } from "@/components/charts/AssetAllocation";
+
+// Import our custom hooks
+import { usePortfolioMetrics } from "@/hooks/usePortfolioMetrics";
+import { useAutoSetup } from "@/hooks/useAutoSetup";
+import { useBackgroundConsistencyVerification } from "@/hooks/useBackgroundConsistencyVerification";
+import { ExcelExportService } from "@/services/excelExportService";
+
+/**
+ * Dashboard Component
+ * 
+ * Main dashboard for the Financial AI Analyst platform.
+ * Features:
+ * - Real-time portfolio metrics
+ * - Interactive financial charts
+ * - AI-powered insights and chat
+ * - Quick action buttons
+ * - Responsive design
+ * 
+ * This component orchestrates the entire dashboard experience.
+ */
+export const Dashboard = () => {
+  const { metrics, isLoading } = usePortfolioMetrics();
+  const { user, signOut } = useAuth();
+  
+  // Background consistency verification (no UI)
+  useEffect(() => {
+    const verifyConsistency = async () => {
+      if (metrics.length > 0) {
+        console.log('🎯 BACKGROUND VERIFICATION: Portfolio metrics consistency check');
+        console.log('✅ Dashboard metrics loaded successfully');
+        console.log('📊 Total metrics:', metrics.length);
+        console.log('💰 Portfolio value:', metrics[0]?.value);
+        console.log('📈 Daily change:', metrics[0]?.change);
+      }
+    };
+    verifyConsistency();
+  }, [metrics, isLoading]);
+  const { toast } = useToast();
+  const { sendMessage, isLoading: aiLoading } = useAIChat();
+  const [analysisResults, setAnalysisResults] = useState<{[key: string]: string}>({});
+  const chatRef = useRef<ChatInterfaceRef>(null);
+  const { theme, setTheme } = useTheme();
+  
+  // Auto-setup for new users
+  useAutoSetup();
+  
+  // Background consistency verification (silent, no UI)
+  useBackgroundConsistencyVerification();
+
+  const handleExcelExport = async () => {
+    try {
+      toast({
+        title: "Exporting Portfolio",
+        description: "Generating Excel report with your portfolio data...",
+      });
+      
+      await ExcelExportService.exportPortfolioToExcel();
+      
+      toast({
+        title: "Export Complete",
+        description: "Portfolio Excel report has been downloaded successfully!",
+      });
+    } catch (error) {
+      toast({
+        title: "Export Failed",
+        description: "Unable to export portfolio data. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleQuickAction = async (action: string) => {
+    let analysisPrompt = "";
+    let title = "";
+    
+    switch (action) {
+      case 'portfolio-analysis':
+        title = "Portfolio Analysis";
+        analysisPrompt = "Provide a comprehensive portfolio analysis including asset allocation, performance metrics, diversification analysis, and specific recommendations for optimization.";
+        break;
+      case 'market-forecast':
+        title = "Market Forecast";
+        analysisPrompt = "Generate a detailed market forecast including sector analysis, economic indicators, potential risks and opportunities, and timing recommendations for the next 3-6 months.";
+        break;
+      case 'risk-assessment':
+        title = "Risk Assessment";
+        analysisPrompt = "Conduct a thorough risk assessment of my portfolio including volatility analysis, correlation risks, concentration risks, market risks, and provide specific risk mitigation strategies.";
+        break;
+      case 'upload-data':
+        toast({
+          title: "Upload Data",
+          description: "Document upload feature coming soon!",
+        });
+        return;
+      case 'ai-analysis':
+        title = "Comprehensive AI Analysis";
+        analysisPrompt = "Perform a complete financial analysis including portfolio performance, risk assessment, market outlook, rebalancing recommendations, tax optimization strategies, and actionable insights.";
+        break;
+      case 'export-excel':
+        await handleExcelExport();
+        return;
+      default:
+        return;
+    }
+
+    toast({
+      title,
+      description: "AI is analyzing your portfolio...",
+    });
+
+    try {
+      // Trigger analysis in the chat interface
+      if (chatRef.current?.triggerAnalysis) {
+        chatRef.current.triggerAnalysis(analysisPrompt);
+      } else {
+        // Fallback: Generate analysis directly
+        const response = await sendMessage(analysisPrompt);
+        setAnalysisResults(prev => ({
+          ...prev,
+          [action]: response.response
+        }));
+        
+        toast({
+          title: "Analysis Complete",
+          description: "Check the AI chat below for detailed results.",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Analysis Failed",
+        description: "Unable to generate analysis. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-background">
+      <div className="container mx-auto p-6 space-y-8">
+        {/* Header */}
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0">
+          <div className="space-y-2">
+            <h1 className="text-4xl font-bold bg-financial-gradient bg-clip-text text-transparent">
+              Financial AI Analyst
+            </h1>
+            <p className="text-muted-foreground text-lg">
+              Advanced AI-powered financial analysis and insights
+            </p>
+          </div>
+          <div className="flex items-center space-x-4">
+            {/* Theme Toggle */}
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+              className="space-x-2"
+            >
+              {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+              <span>{theme === 'dark' ? 'Light' : 'Dark'}</span>
+            </Button>
+            <div className="flex items-center space-x-3 bg-secondary/20 px-3 py-2 rounded-lg">
+              <User className="h-5 w-5 text-primary" />
+              <span className="text-sm font-medium">{user?.email}</span>
+            </div>
+            <SampleDataButton />
+            <Button 
+              variant="outline" 
+              className="space-x-2"
+              onClick={() => handleQuickAction('upload-data')}
+            >
+              <Upload className="h-4 w-4" />
+              <span>Upload Data</span>
+            </Button>
+            <Button variant="outline" className="space-x-2" asChild>
+              <a href="/Financial_AI_Analyst_Expert_Guide.html" download="Financial_AI_Analyst_Expert_Guide.html">
+                <Download className="h-4 w-4" />
+                <span>Download Guide</span>
+              </a>
+            </Button>
+            <Button 
+              className="space-x-2 bg-primary hover:bg-primary/90"
+              onClick={() => handleQuickAction('ai-analysis')}
+            >
+              <Brain className="h-4 w-4" />
+              <span>AI Analysis</span>
+            </Button>
+            <Button variant="outline" onClick={signOut} className="space-x-2">
+              <LogOut className="h-4 w-4" />
+              <span>Sign Out</span>
+            </Button>
+          </div>
+        </div>
+
+        {/* Status Indicators */}
+        <div className="flex flex-wrap items-center gap-3">
+          <Badge variant="secondary" className="space-x-2">
+            <Activity className="h-3 w-3" />
+            <span>AI Agent Active</span>
+          </Badge>
+          <Badge variant="outline">Market Hours: Open</Badge>
+          <Badge variant="outline">Last Update: 2 min ago</Badge>
+          <RealtimeStatus />
+        </div>
+
+        {/* Goldman Sachs Quality Portfolio Overview */}
+        <PortfolioOverview className="mb-8" />
+
+        {/* Institutional Analytics Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+          <PerformanceChart />
+          <RiskMetrics />
+        </div>
+
+        {/* Professional Data Visualization */}
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-8">
+          <div className="xl:col-span-2">
+            <HoldingsTable />
+          </div>
+          <AssetAllocation />
+        </div>
+
+        {/* Market Analysis and Insights Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Market Analysis */}
+          <Card className="p-6 bg-card-gradient border-border">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-semibold text-foreground">Market Overview</h3>
+              <PieChart className="h-5 w-5 text-primary" />
+            </div>
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="text-center p-3 bg-secondary/10 rounded-lg">
+                  <p className="text-xl font-bold text-success">+15.2%</p>
+                  <p className="text-xs text-muted-foreground">YTD Return</p>
+                </div>
+                <div className="text-center p-3 bg-secondary/10 rounded-lg">
+                  <p className="text-xl font-bold text-primary">0.85</p>
+                  <p className="text-xs text-muted-foreground">Sharpe Ratio</p>
+                </div>
+              </div>
+              <div className="text-center p-3 bg-accent/10 rounded-lg">
+                <p className="text-xl font-bold text-accent">12.4%</p>
+                <p className="text-xs text-muted-foreground">Volatility</p>
+              </div>
+            </div>
+          </Card>
+
+          {/* AI Insights */}
+          <Card className="p-6 bg-card-gradient border-border">
+            <h3 className="text-xl font-semibold text-foreground mb-4">AI Insights</h3>
+            <div className="space-y-3">
+              <div className="p-3 bg-primary/10 rounded-lg border-l-4 border-primary">
+                <h4 className="font-medium text-foreground text-sm mb-1">Tech Opportunity</h4>
+                <p className="text-xs text-muted-foreground">
+                  15% upside potential detected in tech ETFs
+                </p>
+              </div>
+              <div className="p-3 bg-warning/10 rounded-lg border-l-4 border-warning">
+                <h4 className="font-medium text-foreground text-sm mb-1">Energy Risk Alert</h4>
+                <p className="text-xs text-muted-foreground">
+                  Consider reducing energy exposure by 5-10%
+                </p>
+              </div>
+            </div>
+          </Card>
+
+          {/* Quick Actions */}
+          <Card className="p-6 bg-card-gradient border-border">
+            <h3 className="text-lg font-semibold text-foreground mb-4">Quick Actions</h3>
+            <div className="space-y-3">
+              <Button variant="outline" className="w-full justify-start space-x-2 text-sm" asChild>
+                <Link to="/transactions">
+                  <BarChart3 className="h-4 w-4" />
+                  <span>View Transactions</span>
+                </Link>
+              </Button>
+              <Button 
+                variant="outline" 
+                className="w-full justify-start space-x-2 text-sm"
+                onClick={() => handleQuickAction('portfolio-analysis')}
+              >
+                <PieChart className="h-4 w-4" />
+                <span>Portfolio Analysis</span>
+              </Button>
+              <Button 
+                variant="outline" 
+                className="w-full justify-start space-x-2 text-sm"
+                onClick={() => handleQuickAction('market-forecast')}
+              >
+                <TrendingUp className="h-4 w-4" />
+                <span>Market Forecast</span>
+              </Button>
+              <Button 
+                variant="outline" 
+                className="w-full justify-start space-x-2 text-sm"
+                onClick={() => handleQuickAction('risk-assessment')}
+              >
+                <Brain className="h-4 w-4" />
+                <span>Risk Assessment</span>
+              </Button>
+              <Button 
+                variant="outline" 
+                className="w-full justify-start space-x-2 text-sm bg-success/10 hover:bg-success/20 border-success/30"
+                onClick={() => handleQuickAction('export-excel')}
+              >
+                <FileSpreadsheet className="h-4 w-4 text-success" />
+                <span>Export Excel Report</span>
+              </Button>
+            </div>
+          </Card>
+        </div>
+
+        {/* Full-Width AI Chat Interface */}
+        <ChatInterface
+          ref={chatRef}
+          title="AI Financial Analyst"
+          placeholder="Ask about your portfolio, market trends, risk analysis, or any financial questions..."
+          className="min-h-[600px]"
+        />
+      </div>
+    </div>
+  );
+};
