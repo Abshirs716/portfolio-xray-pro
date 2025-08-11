@@ -22,7 +22,8 @@ export const useAutoSetup = () => {
         try {
           await PortfolioService.createDefaultPortfolio(user.id);
           toast({
-            title: "Welcome to WealthAI!",
+            title: "Welcome to "Welcome to CapX100!"
+            !",
             description: "Your portfolio has been created. Start by adding some transactions.",
           });
         } catch (error) {
