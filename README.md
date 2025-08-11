@@ -1,218 +1,74 @@
-# Financial AI Analyst - Advanced SaaS Platform
+# CapX100 - Institutional Portfolio Intelligence
 
-## 🚀 Project Overview
+**"Give Your Capital 100% Transparency"**
 
-A sophisticated Financial AI Analyst platform built for commercial use, featuring:
-- Advanced AI-powered financial analysis
-- Real-time market data integration
-- Portfolio optimization
-- Risk assessment and reporting
-- Document analysis and insights
-- Multi-user support with authentication
+## 🚀 Overview
+CapX100 is a professional portfolio management platform that brings BlackRock Aladdin-level analytics to independent RIAs and wealth managers at 1/100th the cost.
 
-## 🏗️ Architecture
+## 💼 Built by Abshir Sharif
+**Founder & CEO | Financial Technology Innovator**
+- Former Shell, World Bank, ING Group executive
+- 3 successful AI company exits
+- MIT Data Science certification
+- Saved Fortune 500 companies millions through AI optimization
 
-### Frontend Stack
-- **React 18** with TypeScript
-- **Tailwind CSS** with custom design system
-- **Shadcn/UI** components
-- **React Router** for navigation
-- **TanStack Query** for data management
-- **Recharts** for data visualization
+## 🎯 What We Solve
+RIAs spend 20+ hours per week on portfolio analysis that institutional firms do in seconds. We democratize access to:
+- Institutional-grade risk analytics (Sharpe, VaR, Monte Carlo)
+- Tax-loss harvesting optimization
+- Portfolio X-Ray Pro - 30-second complete analysis
+- Real-time portfolio monitoring
+- Professional PDF reports
 
-### Backend Stack (Supabase Integration Required)
-- **Supabase** for backend services
-- **PostgreSQL** database
-- **Real-time subscriptions**
-- **Authentication & authorization**
-- **File storage**
-- **Edge functions** for AI integration
+## 💰 Pricing
+- **Starter:** $297/month - Perfect for independent RIAs
+- **Professional:** $997/month - Multi-client management
+- **Enterprise:** $4,997/month - White label solution
 
-### AI Integration
-- **OpenAI GPT-4** for financial analysis
-- **Document processing** for financial reports
-- **Real-time market data** APIs
-- **Custom financial models**
+## 📊 Current Status
+- ✅ MVP Development Phase
+- ✅ Clean architecture (zero dependencies on external platforms)
+- ✅ Own Supabase backend configured
+- ✅ Domain active: capx100.com
+- 🔄 Building Portfolio X-Ray Pro feature
+- 🎯 First customer target: Day 14
 
-## 📁 Project Structure
+## 🛠️ Tech Stack
+- **Frontend:** React + TypeScript + Vite + TailwindCSS
+- **Backend:** Supabase (PostgreSQL + Auth + Realtime)
+- **Analytics:** TensorFlow.js, D3.js, Recharts
+- **Hosting:** Vercel (Global CDN)
+- **Domain:** capx100.com
 
-```
-src/
-├── components/
-│   ├── ui/                 # Shadcn UI components
-│   ├── dashboard/          # Dashboard components
-│   ├── auth/              # Authentication components
-│   ├── charts/            # Chart components
-│   ├── ai/                # AI-related components
-│   └── common/            # Shared components
-├── hooks/                 # Custom React hooks
-├── lib/                   # Utility functions
-├── pages/                 # Page components
-├── services/              # API services
-├── types/                 # TypeScript definitions
-└── utils/                 # Helper utilities
-```
+## 📈 Traction
+- Bootstrap phase: $500 initial investment
+- Target: 10 customers in 30 days = $2,970 MRR
+- 6-month goal: 150 customers = $44,550 MRR
+- 12-month goal: 300 customers = $1M+ ARR
 
-## 🎯 Development Phases
-
-### Phase 1: MVP Foundation ✅
-- [x] Dashboard UI design
-- [x] Component architecture
-- [x] Design system implementation
-- [ ] Supabase integration (Required for backend)
-
-### Phase 2: Core Features
-- [ ] User authentication system
-- [ ] Database schema design
-- [ ] AI chat integration
-- [ ] Document upload/analysis
-- [ ] Basic reporting
-
-### Phase 3: Advanced Features
-- [ ] Real-time market data
-- [ ] Portfolio management
-- [ ] Advanced analytics
-- [ ] Multi-user collaboration
-- [ ] API integrations
-
-### Phase 4: Production Ready
-- [ ] Performance optimization
-- [ ] Security hardening
-- [ ] CI/CD pipeline
-- [ ] Monitoring & analytics
-- [ ] Payment integration
-
-## 🔧 Getting Started
+## 🚀 Getting Started
 
 ### Prerequisites
-1. **Supabase Account** - Required for backend functionality
-2. **AI API Keys** (OpenAI, etc.)
-3. **Financial Data APIs** (Alpha Vantage, IEX Cloud, etc.)
+- Node.js 18+
+- npm or yarn
 
-### Setup Instructions
-
-1. **Connect Supabase Integration**
-   - Click the green Supabase button in Lovable
-   - Follow the setup wizard
-   - Configure authentication and database
-
-2. **Install Dependencies**
-   ```bash
-   npm install
-   ```
-
-3. **Configure Environment**
-   - Set up Supabase secrets
-   - Add AI API keys
-   - Configure market data APIs
-
-4. **Development**
-   ```bash
-   npm run dev
-   ```
-
-## 🚀 Deployment Strategy
-
-### CI/CD Pipeline
-1. **GitHub Integration**
-   - Auto-sync with GitHub
-   - Branch protection rules
-   - Pull request workflows
-
-2. **Automated Testing**
-   - Unit tests
-   - Integration tests
-   - E2E testing
-
-3. **Deployment**
-   - Staging environment
-   - Production deployment
-   - Database migrations
-
-### Production Infrastructure
-- **Frontend**: Vercel/Netlify
-- **Backend**: Supabase
-- **CDN**: CloudFlare
-- **Monitoring**: Sentry, LogRocket
-- **Analytics**: PostHog, Google Analytics
-
-## 💰 Monetization Strategy
-
-### Pricing Tiers
-1. **Free Tier**: Basic analysis, limited AI queries
-2. **Professional**: Advanced features, more AI capacity
-3. **Enterprise**: Full features, custom integrations
-
-### Revenue Streams
-- Monthly/Annual subscriptions
-- Pay-per-analysis
-- API access
-- Custom enterprise solutions
-
-## 🔐 Security & Compliance
-
-### Security Features
-- Row Level Security (RLS)
-- API rate limiting
-- Data encryption
-- Audit logging
-
-### Compliance
-- SOC 2 Type II
-- GDPR compliance
-- Financial data regulations
-- Data retention policies
-
-## 📊 Analytics & Monitoring
-
-### User Analytics
-- Feature usage tracking
-- Performance metrics
-- User journey analysis
-- Conversion tracking
-
-### System Monitoring
-- Uptime monitoring
-- Performance monitoring
-- Error tracking
-- Security monitoring
-
-## 🤝 Development Workflow
-
-### Local Development
+### Installation
 ```bash
 # Clone the repository
-git clone <YOUR_GIT_URL>
-cd <YOUR_PROJECT_NAME>
+git clone https://github.com/Abshirs716/capx100-app.git
+
+# Navigate to project
+cd capx100-app
 
 # Install dependencies
 npm install
 
-# Start development server
+# Set up environment variables
+cp .env.example .env.local
+# Add your Supabase credentials
+
+# Run development server
 npm run dev
-```
 
-### GitHub Integration
-- Navigate to Project > Settings > GitHub
-- Connect your GitHub account
-- Auto-sync enabled for seamless development
-
-### Custom Domain Setup
-- Navigate to Project > Settings > Domains
-- Click Connect Domain
-- Follow the setup guide
-
-## 📞 Support & Documentation
-
-**Project URL**: https://lovable.dev/projects/ee85eef0-1b69-4e8d-93d8-ff25d974bbfd
-
-**Technologies Used**:
-- Vite + TypeScript
-- React 18
-- Shadcn/UI
-- Tailwind CSS
-- TanStack Query
-
----
-
-**⚠️ CRITICAL NEXT STEP**: Connect to Supabase to unlock backend functionality and continue with Phase 2 development.
+# Build for production
+npm run build
