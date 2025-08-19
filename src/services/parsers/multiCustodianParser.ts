@@ -1,303 +1,252 @@
-// src/services/parsers/multiCustodianParser.ts - Universal Custodian Parser
-
-import { CustodianDetection, ParsedHolding } from '../../types/portfolio';
+// src/services/parsers/multiCustodianParser.ts
+import { ParseResult, Holding, CustodianDetection } from '../../types/portfolio';
 
 interface CustodianPattern {
   name: string;
+  confidence: number;
   format: string;
-  requiredHeaders: string[];
-  optionalHeaders: string[];
-  columnMappings: Record<string, string[]>;
+  headers: string[];
+  requiredFields: string[];
+  columnMappings: Record<string, string>;
 }
 
-class MultiCustodianParser {
+interface DetectionResult {
+  custodian: string;
+  confidence: number;
+  format: string;
+  columnMappings: Record<string, string>;
+}
+
+export class MultiCustodianParser {
   private custodianPatterns: CustodianPattern[] = [
     {
-      name: 'Charles Schwab',
-      format: 'Standard Schwab Export',
-      requiredHeaders: ['Symbol', 'Description', 'Quantity'],
-      optionalHeaders: ['Price', 'Position Value', 'Cost Basis'],
+      name: "Charles Schwab",
+      confidence: 95,
+      format: "schwab_standard",
+      headers: ["Symbol", "Description", "Quantity", "Price", "Position Value"],
+      requiredFields: ["Symbol", "Quantity", "Price"],
       columnMappings: {
-        symbol: ['Symbol', 'Ticker'],
-        description: ['Description', 'Security Description', 'Name'],
-        shares: ['Quantity', 'Shares', 'Units'],
-        price: ['Price', 'Last Price', 'Current Price'],
-        marketValue: ['Position Value', 'Market Value', 'Value'],
-        costBasis: ['Cost Basis', 'Total Cost']
+        symbol: "Symbol",
+        name: "Description", 
+        shares: "Quantity",
+        currentPrice: "Price",
+        marketValue: "Position Value"
       }
     },
     {
-      name: 'Fidelity',
-      format: 'Fidelity NetBenefits',
-      requiredHeaders: ['Symbol', 'Security Name', 'Shares'],
-      optionalHeaders: ['Current Value', 'Cost Basis Total'],
+      name: "Fidelity",
+      confidence: 90,
+      format: "fidelity_standard",
+      headers: ["Symbol", "Description", "Quantity", "Last Price", "Current Value"],
+      requiredFields: ["Symbol", "Quantity", "Last Price"],
       columnMappings: {
-        symbol: ['Symbol', 'Ticker'],
-        description: ['Security Name', 'Description'],
-        shares: ['Shares', 'Quantity'],
-        price: ['Last Price', 'Current Price'],
-        marketValue: ['Current Value', 'Market Value'],
-        costBasis: ['Cost Basis Total', 'Total Cost Basis']
+        symbol: "Symbol",
+        name: "Description",
+        shares: "Quantity", 
+        currentPrice: "Last Price",
+        marketValue: "Current Value"
       }
     },
     {
-      name: 'TD Ameritrade',
-      format: 'TD Ameritrade Export',
-      requiredHeaders: ['SYMBOL', 'DESCRIPTION', 'QTY'],
-      optionalHeaders: ['LAST PRICE', 'MKT VALUE'],
+      name: "TD Ameritrade",
+      confidence: 85,
+      format: "td_standard",
+      headers: ["Symbol", "Quantity", "Average Price", "Market Value"],
+      requiredFields: ["Symbol", "Quantity"],
       columnMappings: {
-        symbol: ['SYMBOL', 'Symbol'],
-        description: ['DESCRIPTION', 'Description'],
-        shares: ['QTY', 'QUANTITY', 'Quantity'],
-        price: ['LAST PRICE', 'Last Price'],
-        marketValue: ['MKT VALUE', 'Market Value'],
-        costBasis: ['COST', 'Cost Basis']
+        symbol: "Symbol",
+        shares: "Quantity",
+        averageCost: "Average Price",
+        marketValue: "Market Value"
       }
     },
     {
-      name: 'Interactive Brokers',
-      format: 'IB Portfolio Export',
-      requiredHeaders: ['Symbol', 'Position', 'Market Price'],
-      optionalHeaders: ['Market Value', 'Average Cost'],
+      name: "Interactive Brokers",
+      confidence: 80,
+      format: "ib_standard", 
+      headers: ["Symbol", "Quantity", "Mult", "Price", "Market Value"],
+      requiredFields: ["Symbol", "Quantity", "Price"],
       columnMappings: {
-        symbol: ['Symbol', 'Ticker'],
-        description: ['Description', 'Security Name'],
-        shares: ['Position', 'Quantity', 'Shares'],
-        price: ['Market Price', 'Last Price'],
-        marketValue: ['Market Value', 'Value'],
-        costBasis: ['Cost Basis', 'Average Cost']
+        symbol: "Symbol",
+        shares: "Quantity",
+        currentPrice: "Price",
+        marketValue: "Market Value"
       }
     },
     {
-      name: 'E*Trade',
-      format: 'E*Trade Portfolio',
-      requiredHeaders: ['Symbol', 'Qty', 'Price'],
-      optionalHeaders: ['Market Value', 'Total Cost'],
+      name: "E*TRADE",
+      confidence: 80,
+      format: "etrade_standard",
+      headers: ["Symbol", "Qty", "Price Paid", "Last Price", "Value"],
+      requiredFields: ["Symbol", "Qty"],
       columnMappings: {
-        symbol: ['Symbol', 'Ticker'],
-        description: ['Product', 'Description'],
-        shares: ['Qty', 'Quantity'],
-        price: ['Price', 'Last Price'],
-        marketValue: ['Market Value', 'Current Value'],
-        costBasis: ['Total Cost', 'Cost Basis']
+        symbol: "Symbol",
+        shares: "Qty",
+        averageCost: "Price Paid",
+        currentPrice: "Last Price", 
+        marketValue: "Value"
       }
     }
   ];
 
-  async detectCustodian(csvContent: string): Promise<CustodianDetection> {
-    console.log('🔍 Starting custodian detection...');
-    
-    const headers = this.extractHeaders(csvContent);
-    console.log('📋 Detected headers:', headers);
-
-    let bestMatch: CustodianDetection = {
-      custodian: 'Custom Format',
+  detectCustodian(headers: string[], csvContent: string): DetectionResult {
+    let bestMatch: DetectionResult = {
+      custodian: "Unknown",
       confidence: 0,
-      format: 'Unknown Format',
-      columnMappings: {} // Always provide columnMappings
+      format: "custom",
+      columnMappings: {}
     };
 
-    // Check each custodian pattern
+    const headerStr = headers.join(' ').toLowerCase();
+    const contentLower = csvContent.toLowerCase();
+
     for (const pattern of this.custodianPatterns) {
-      const confidence = this.calculateConfidence(headers, pattern);
-      console.log(`🎯 ${pattern.name}: ${confidence}% match`);
-      
+      let score = 0;
+      let maxScore = pattern.requiredFields.length;
+
+      // Check for custodian name in content
+      if (contentLower.includes(pattern.name.toLowerCase())) {
+        score += 2;
+        maxScore += 2;
+      }
+
+      // Check for required field matches
+      for (const field of pattern.requiredFields) {
+        if (headers.some(h => h.toLowerCase().includes(field.toLowerCase()))) {
+          score += 1;
+        }
+      }
+
+      const confidence = (score / maxScore) * 100;
+
       if (confidence > bestMatch.confidence) {
         bestMatch = {
           custodian: pattern.name,
-          confidence,
+          confidence: Math.min(confidence, pattern.confidence),
           format: pattern.format,
-          columnMappings: this.createMappings(headers, pattern)
+          columnMappings: pattern.columnMappings
         };
       }
     }
 
-    // If no good match, try generic detection
-    if (bestMatch.confidence < 50) {
-      bestMatch = this.genericDetection(headers);
-    }
-
-    console.log(`✅ Best match: ${bestMatch.custodian} (${bestMatch.confidence}% confidence)`);
     return bestMatch;
   }
 
-  private extractHeaders(csvContent: string): string[] {
-    const lines = csvContent.split('\n');
-    
-    // Skip comment lines
-    let headerLine = '';
-    for (const line of lines) {
-      if (line.trim() && !line.startsWith('#') && !line.startsWith('//')) {
-        headerLine = line;
-        break;
-      }
-    }
-
-    // Parse CSV headers (handle quoted fields)
-    const headers: string[] = [];
-    let current = '';
-    let inQuotes = false;
-    
-    for (let i = 0; i < headerLine.length; i++) {
-      const char = headerLine[i];
+  parseCSV(csvContent: string): ParseResult {
+    try {
+      const lines = csvContent.split('\n').filter(line => line.trim());
       
-      if (char === '"') {
-        inQuotes = !inQuotes;
-      } else if (char === ',' && !inQuotes) {
-        headers.push(current.trim());
-        current = '';
-      } else {
-        current += char;
-      }
-    }
-    
-    if (current) {
-      headers.push(current.trim());
-    }
-
-    return headers.map(h => h.replace(/^"|"$/g, '').trim());
-  }
-
-  private calculateConfidence(headers: string[], pattern: CustodianPattern): number {
-    const normalizedHeaders = headers.map(h => h.toLowerCase().trim());
-    let matchScore = 0;
-    let totalWeight = 0;
-
-    // Check required headers (weight: 60%)
-    for (const required of pattern.requiredHeaders) {
-      totalWeight += 60 / pattern.requiredHeaders.length;
-      if (normalizedHeaders.some(h => h === required.toLowerCase())) {
-        matchScore += 60 / pattern.requiredHeaders.length;
-      }
-    }
-
-    // Check optional headers (weight: 40%)
-    for (const optional of pattern.optionalHeaders) {
-      totalWeight += 40 / pattern.optionalHeaders.length;
-      if (normalizedHeaders.some(h => h === optional.toLowerCase())) {
-        matchScore += 40 / pattern.optionalHeaders.length;
-      }
-    }
-
-    return Math.round((matchScore / totalWeight) * 100);
-  }
-
-  private createMappings(headers: string[], pattern: CustodianPattern): Record<string, string> {
-    const mappings: Record<string, string> = {};
-    const normalizedHeaders = headers.map(h => h.toLowerCase().trim());
-
-    for (const [field, possibleColumns] of Object.entries(pattern.columnMappings)) {
-      for (const column of possibleColumns) {
-        const index = normalizedHeaders.findIndex(h => h === column.toLowerCase());
-        if (index !== -1) {
-          mappings[field] = headers[index];
-          break;
-        }
-      }
-    }
-
-    return mappings;
-  }
-
-  private genericDetection(headers: string[]): CustodianDetection {
-    const mappings: Record<string, string> = {};
-    const normalizedHeaders = headers.map(h => h.toLowerCase());
-
-    // Generic patterns for common fields
-    const patterns = {
-      symbol: ['symbol', 'ticker', 'stock', 'security'],
-      description: ['description', 'name', 'security name', 'company'],
-      shares: ['quantity', 'shares', 'qty', 'units', 'position'],
-      price: ['price', 'last price', 'current price', 'market price'],
-      marketValue: ['market value', 'value', 'current value', 'position value'],
-      costBasis: ['cost basis', 'cost', 'total cost', 'book value']
-    };
-
-    let confidence = 0;
-    for (const [field, keywords] of Object.entries(patterns)) {
-      for (let i = 0; i < headers.length; i++) {
-        const header = normalizedHeaders[i];
-        if (keywords.some(kw => header.includes(kw))) {
-          mappings[field] = headers[i];
-          confidence += 15;
-          break;
-        }
-      }
-    }
-
-    return {
-      custodian: 'Custom Format',
-      confidence: Math.min(confidence, 65),
-      format: 'Generic CSV Format',
-      columnMappings: mappings // Always return mappings
-    };
-  }
-
-  async parseCustodianData(csvContent: string, detection: CustodianDetection): Promise<ParsedHolding[]> {
-    console.log(`📊 Parsing ${detection.custodian} format...`);
-    
-    const lines = csvContent.split('\n').filter(line => line.trim());
-    const headers = this.extractHeaders(csvContent);
-    const headerIndex = lines.findIndex(line => {
-      const lineHeaders = this.extractHeaders(line);
-      return lineHeaders.length > 0 && lineHeaders[0] === headers[0];
-    });
-
-    if (headerIndex === -1) {
-      throw new Error('Could not find header row');
-    }
-
-    const dataLines = lines.slice(headerIndex + 1);
-    const holdings: ParsedHolding[] = [];
-    const mappings = detection.columnMappings || {}; // Ensure mappings is never undefined
-
-    // Find column indices
-    const columnIndices: Record<string, number> = {};
-    for (const [field, columnName] of Object.entries(mappings)) {
-      const index = headers.findIndex(h => h === columnName);
-      if (index !== -1) {
-        columnIndices[field] = index;
-      }
-    }
-
-    // Parse each data row
-    for (const line of dataLines) {
-      if (!line.trim() || line.startsWith('#')) continue;
-
-      const values = this.parseCSVLine(line);
-      if (values.length < headers.length) continue;
-
-      try {
-        const holding: ParsedHolding = {
-          symbol: this.getValue(values, columnIndices.symbol, ''),
-          description: this.getValue(values, columnIndices.description, ''),
-          shares: this.parseNumber(this.getValue(values, columnIndices.shares, '0')),
-          price: this.parseNumber(this.getValue(values, columnIndices.price, '0')),
-          marketValue: this.parseNumber(this.getValue(values, columnIndices.marketValue, '0')),
-          costBasis: columnIndices.costBasis !== undefined 
-            ? this.parseNumber(this.getValue(values, columnIndices.costBasis, '0'))
-            : undefined
-        };
-
-        // Skip if essential data is missing
-        if (holding.symbol && holding.shares > 0) {
-          // Calculate market value if not provided
-          if (!holding.marketValue && holding.price) {
-            holding.marketValue = holding.shares * holding.price;
+      if (lines.length < 2) {
+        return {
+          success: false,
+          holdings: [],
+          metadata: {
+            custodianDetected: "Unknown",
+            confidence: 0,
+            rowsProcessed: 0,
+            rowsSkipped: 0,
+            errors: ["File appears to be empty or invalid"],
+            warnings: []
+          },
+          dataXRay: {
+            originalColumns: [],
+            mappedColumns: {},
+            unmappedColumns: [],
+            sampleData: []
           }
-          holdings.push(holding);
-        }
-      } catch (error) {
-        console.warn('Failed to parse row:', line, error);
+        };
       }
-    }
 
-    console.log(`✅ Successfully parsed ${holdings.length} holdings`);
-    return holdings;
+      const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
+      const detection = this.detectCustodian(headers, csvContent);
+      
+      const holdings: Holding[] = [];
+      const errors: string[] = [];
+      let rowsProcessed = 0;
+      let rowsSkipped = 0;
+
+      for (let i = 1; i < lines.length; i++) {
+        const values = this.parseCSVLine(lines[i]);
+        
+        if (values.length < 3 || !values[0]) {
+          rowsSkipped++;
+          continue;
+        }
+
+        try {
+          const holding: Holding = {
+            symbol: values[0] || '',
+            name: values[1] || '',
+            shares: this.parseNumber(values[2]) || 0,
+            averageCost: this.parseNumber(values[3]) || 0,
+            currentPrice: this.parseNumber(values[4]) || 0,
+            marketValue: this.parseNumber(values[5]) || 0,
+            costBasis: 0,
+            unrealizedGain: 0,
+            unrealizedGainPercent: 0
+          };
+
+          // Calculate derived values
+          if (holding.shares && holding.averageCost) {
+            holding.costBasis = holding.shares * holding.averageCost;
+          }
+          
+          if (holding.marketValue && holding.costBasis) {
+            holding.unrealizedGain = holding.marketValue - holding.costBasis;
+            holding.unrealizedGainPercent = (holding.unrealizedGain / holding.costBasis) * 100;
+          }
+
+          holdings.push(holding);
+          rowsProcessed++;
+        } catch (error) {
+          errors.push(`Row ${i + 1}: ${error}`);
+          rowsSkipped++;
+        }
+      }
+
+      return {
+        success: true,
+        holdings,
+        metadata: {
+          custodianDetected: detection.custodian,
+          confidence: detection.confidence,
+          rowsProcessed,
+          rowsSkipped,
+          errors,
+          warnings: []
+        },
+        dataXRay: {
+          originalColumns: headers,
+          mappedColumns: detection.columnMappings,
+          unmappedColumns: headers.filter(h => !Object.values(detection.columnMappings).includes(h)),
+          sampleData: holdings.slice(0, 3)
+        }
+      };
+
+    } catch (error) {
+      return {
+        success: false,
+        holdings: [],
+        metadata: {
+          custodianDetected: "Unknown",
+          confidence: 0,
+          rowsProcessed: 0,
+          rowsSkipped: 0,
+          errors: [`Parse error: ${error}`],
+          warnings: []
+        },
+        dataXRay: {
+          originalColumns: [],
+          mappedColumns: {},
+          unmappedColumns: [],
+          sampleData: []
+        }
+      };
+    }
   }
 
   private parseCSVLine(line: string): string[] {
-    const result: string[] = [];
+    const result = [];
     let current = '';
     let inQuotes = false;
     
@@ -307,33 +256,23 @@ class MultiCustodianParser {
       if (char === '"') {
         inQuotes = !inQuotes;
       } else if (char === ',' && !inQuotes) {
-        result.push(current);
+        result.push(current.trim());
         current = '';
       } else {
         current += char;
       }
     }
     
-    result.push(current);
-    return result.map(field => field.trim().replace(/^"|"$/g, ''));
-  }
-
-  private getValue(values: string[], index: number | undefined, defaultValue: string): string {
-    if (index === undefined || index < 0 || index >= values.length) {
-      return defaultValue;
-    }
-    return values[index] || defaultValue;
+    result.push(current.trim());
+    return result;
   }
 
   private parseNumber(value: string): number {
-    // Remove currency symbols, commas, and parentheses
-    const cleaned = value
-      .replace(/[$,]/g, '')
-      .replace(/[()]/g, '')
-      .trim();
-    
+    if (!value) return 0;
+    const cleaned = value.replace(/[$,()]/g, '').trim();
+    const isNegative = value.includes('(') || value.startsWith('-');
     const num = parseFloat(cleaned);
-    return isNaN(num) ? 0 : num;
+    return isNegative && num > 0 ? -num : num || 0;
   }
 }
 

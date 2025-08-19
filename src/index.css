@@ -2,198 +2,43 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
-*/
+:root {
+  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
 
-@layer base {
-  :root {
-    /* Refined Light Theme - Institutional Grade */
-    --background: 0 0% 98%;
-    --foreground: 210 29% 24%;
+  color-scheme: light dark;
+  color: rgba(255, 255, 255, 0.87);
+  background-color: #242424;
 
-    --card: 210 20% 96%;
-    --card-foreground: 210 29% 24%;
-
-    --popover: 210 20% 96%;
-    --popover-foreground: 210 29% 24%;
-
-    /* Professional Navy Primary */
-    --primary: 210 65% 30%;
-    --primary-foreground: 0 0% 100%;
-
-    /* Sophisticated Medium Gray Secondary */
-    --secondary: 184 8% 54%;
-    --secondary-foreground: 0 0% 100%;
-
-    --muted: 210 20% 96%;
-    --muted-foreground: 184 8% 54%;
-
-    /* Professional Deep Blue Accent */
-    --accent: 210 65% 30%;
-    --accent-foreground: 0 0% 100%;
-
-    --destructive: 0 65% 51%;
-    --destructive-foreground: 0 0% 100%;
-
-    --border: 210 27% 89%;
-    --input: 210 27% 89%;
-    --ring: 210 65% 30%;
-
-    /* Financial Success Green */
-    --success: 142 76% 36%;
-    --success-foreground: 0 0% 100%;
-
-    /* Professional Warning Amber */
-    --warning: 43 96% 56%;
-    --warning-foreground: 210 11% 15%;
-
-    /* Institutional Burgundy */
-    --institutional: 345 75% 36%;
-    --institutional-foreground: 0 0% 100%;
-
-    /* Forest Green for positive metrics */
-    --forest: 140 65% 32%;
-    --forest-foreground: 0 0% 100%;
-
-    /* Professional gradients */
-    --institutional-gradient: linear-gradient(135deg, hsl(210 65% 30%), hsl(142 76% 36%));
-    --professional-gradient: linear-gradient(180deg, hsl(0 0% 98%), hsl(210 20% 96%));
-    --header-gradient: linear-gradient(135deg, hsl(210 65% 30%), hsl(210 29% 24%));
-    
-    /* Refined shadows for institutional look */
-    --shadow-professional: 0 1px 3px 0 rgba(0, 0, 0, 0.08), 0 1px 2px 0 rgba(0, 0, 0, 0.04);
-    --shadow-elevated: 0 4px 6px -1px rgba(0, 0, 0, 0.08), 0 2px 4px -1px rgba(0, 0, 0, 0.04);
-    --shadow-premium: 0 20px 25px -5px rgba(0, 0, 0, 0.08), 0 10px 10px -5px rgba(0, 0, 0, 0.03);
-
-    /* Chart colors for asset allocation */
-    --chart-1: 210 65% 30%;
-    --chart-2: 142 76% 36%;
-    --chart-3: 43 96% 56%;
-    --chart-4: 345 75% 36%;
-    --chart-5: 140 65% 32%;
-    --chart-6: 270 95% 40%;
-    --chart-7: 25 95% 53%;
-    --chart-8: 195 100% 50%;
-    --chart-9: 335 100% 65%;
-    --chart-10: 120 100% 25%;
-    --chart-11: 60 100% 50%;
-    --chart-12: 300 100% 75%;
-    --chart-13: 180 100% 35%;
-    --chart-14: 15 100% 60%;
-    --chart-15: 240 100% 60%;
-
-    --radius: 0.5rem;
-
-    --sidebar-background: 0 0% 98%;
-
-    --sidebar-foreground: 240 5.3% 26.1%;
-
-    --sidebar-primary: 240 5.9% 10%;
-
-    --sidebar-primary-foreground: 0 0% 98%;
-
-    --sidebar-accent: 240 4.8% 95.9%;
-
-    --sidebar-accent-foreground: 240 5.9% 10%;
-
-    --sidebar-border: 220 13% 91%;
-
-    --sidebar-ring: 217.2 91.2% 59.8%;
-  }
-
-  .dark {
-    /* Refined Dark Theme - Institutional Grade */
-    --background: 210 17% 14%;
-    --foreground: 210 20% 98%;
-
-    --card: 210 14% 19%;
-    --card-foreground: 210 20% 98%;
-
-    --popover: 210 14% 19%;
-    --popover-foreground: 210 20% 98%;
-
-    /* Softer Blue Primary for Dark Mode */
-    --primary: 210 100% 70%;
-    --primary-foreground: 210 17% 14%;
-
-    /* Medium Light Gray Secondary */
-    --secondary: 210 14% 71%;
-    --secondary-foreground: 210 17% 14%;
-
-    --muted: 210 14% 19%;
-    --muted-foreground: 210 14% 71%;
-
-    /* Professional Gold Accent for Dark Mode */
-    --accent: 43 96% 65%;
-    --accent-foreground: 210 17% 14%;
-
-    --destructive: 0 75% 60%;
-    --destructive-foreground: 210 20% 98%;
-
-    --border: 210 12% 32%;
-    --input: 210 12% 32%;
-    --ring: 210 100% 70%;
-
-    /* Enhanced colors for dark mode */
-    --success: 142 76% 55%;
-    --success-foreground: 210 17% 14%;
-
-    --warning: 43 96% 65%;
-    --warning-foreground: 210 17% 14%;
-
-    --institutional: 345 75% 65%;
-    --institutional-foreground: 210 17% 14%;
-
-    --forest: 140 65% 55%;
-    --forest-foreground: 210 17% 14%;
-
-    /* Refined dark mode gradients */
-    --institutional-gradient: linear-gradient(135deg, hsl(210 100% 70%), hsl(142 76% 55%));
-    --professional-gradient: linear-gradient(180deg, hsl(210 17% 14%), hsl(210 14% 19%));
-    --header-gradient: linear-gradient(135deg, hsl(210 14% 19%), hsl(210 12% 32%));
-
-    /* Softer dark mode shadows */
-    --shadow-professional: 0 1px 3px 0 rgba(0, 0, 0, 0.25), 0 1px 2px 0 rgba(0, 0, 0, 0.15);
-    --shadow-elevated: 0 4px 6px -1px rgba(0, 0, 0, 0.25), 0 2px 4px -1px rgba(0, 0, 0, 0.15);
-    --shadow-premium: 0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.1);
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
-  }
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-text-size-adjust: 100%;
 }
 
-@layer base {
-  * {
-    @apply border-border;
-  }
+a {
+  font-weight: 500;
+  color: #646cff;
+  text-decoration: inherit;
+}
+a:hover {
+  color: #535bf2;
+}
 
-  body {
-    @apply bg-background text-foreground;
-  }
+body {
+  margin: 0;
+  display: flex;
+  place-items: center;
+  min-width: 320px;
+  min-height: 100vh;
+}
 
-  /* Prose styling for markdown content */
-  .prose {
-    --tw-prose-body: hsl(var(--muted-foreground));
-    --tw-prose-headings: hsl(var(--foreground));
-    --tw-prose-lead: hsl(var(--muted-foreground));
-    --tw-prose-links: hsl(var(--primary));
-    --tw-prose-bold: hsl(var(--foreground));
-    --tw-prose-counters: hsl(var(--muted-foreground));
-    --tw-prose-bullets: hsl(var(--primary));
-    --tw-prose-hr: hsl(var(--border));
-    --tw-prose-quotes: hsl(var(--foreground));
-    --tw-prose-quote-borders: hsl(var(--border));
-    --tw-prose-captions: hsl(var(--muted-foreground));
-    --tw-prose-code: hsl(var(--foreground));
-    --tw-prose-pre-code: hsl(var(--muted-foreground));
-    --tw-prose-pre-bg: hsl(var(--secondary));
-    --tw-prose-th-borders: hsl(var(--border));
-    --tw-prose-td-borders: hsl(var(--border));
-  }
+#root {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 2rem;
+  text-align: center;
+  width: 100%;
 }
