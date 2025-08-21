@@ -33,33 +33,36 @@ export const SimpleUploader: React.FC<SimpleUploaderProps> = ({ onDataParsed, is
       }
 
       const result = await response.json();
-      console.log('Upload result:', result);
+      console.log('Backend response:', result);
       
-      // Create a ParseResult object that matches what the frontend expects
+      // Transform backend response to frontend format
       const parseResult = {
         success: true,
         holdings: result.performance?.top_holdings?.map((holding: any) => ({
           symbol: holding.symbol,
           name: holding.name,
-          shares: 100, // Default values since backend doesn't provide these
-          currentPrice: holding.market_value / 100,
+          shares: Math.abs(holding.market_value / 100), // Estimate
+          currentPrice: 100, // Placeholder
           marketValue: holding.market_value,
           costBasis: holding.market_value * 0.9,
           unrealizedGain: holding.market_value * 0.1,
-          unrealizedGainPercent: 10
+          unrealizedGainPercent: 10,
+          weight: holding.weight,
+          sector: holding.sector
         })) || [],
         metadata: {
           rowsProcessed: result.rows || 0,
-          rowsSkipped: 0,
-          custodianDetected: 'Universal',
-          confidence: 100
+          rowsSkipped: result.performance?.diagnostics?.zero_mv_rows || 0,
+          custodianDetected: 'Universal Parser',
+          confidence: result.performance?.transparency?.score || 100
         },
         dataXRay: {
           mappedColumns: result.columns?.reduce((acc: any, col: string) => {
             acc[col] = col;
             return acc;
           }, {}) || {}
-        }
+        },
+        analytics: result.performance // Pass through all analytics
       };
       
       onDataParsed(parseResult);

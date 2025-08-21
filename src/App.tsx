@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { BarChart3, Shield, Upload, FileText, CheckCircle, Sun, Moon } from 'lucide-react'
 import './App.css'
 import { SimpleUploader } from './components/portfolio/SimpleUploader'
+import { AnalyticsDisplay } from './components/portfolio/AnalyticsDisplay'
 import { RiskAnalysis } from './components/portfolio/RiskAnalysis'
 import { PortfolioDashboard } from './components/portfolio/PortfolioDashboard'
 import { SectorAnalysis } from './components/portfolio/SectorAnalysis'
@@ -104,6 +105,11 @@ function App() {
           <SimpleUploader onDataParsed={handleDataParsed} isDarkMode={isDarkMode} />
         </div>
 
+        {/* Analytics Display - NEW */}
+        {parseResult?.analytics && (
+          <AnalyticsDisplay analytics={parseResult.analytics} isDarkMode={isDarkMode} />
+        )}
+
         {/* Results Section */}
         {parseResult && parseResult.success && (
           <div className="space-y-8">
@@ -117,7 +123,7 @@ function App() {
                   <div className="ml-4">
                     <p className={`text-sm font-medium transition-colors duration-300 ${theme.textMuted}`}>Total Value</p>
                     <p className={`text-2xl font-bold transition-colors duration-300 ${theme.textPrimary}`}>
-                      {formatCurrency(totalValue)}
+                      {formatCurrency(parseResult.analytics?.total_value || totalValue)}
                     </p>
                   </div>
                 </div>
@@ -131,7 +137,7 @@ function App() {
                   <div className="ml-4">
                     <p className={`text-sm font-medium transition-colors duration-300 ${theme.textMuted}`}>Holdings</p>
                     <p className={`text-2xl font-bold transition-colors duration-300 ${theme.textPrimary}`}>
-                      {parseResult.holdings.length}
+                      {parseResult.analytics?.holdings || parseResult.holdings.length}
                     </p>
                   </div>
                 </div>
@@ -186,6 +192,9 @@ function App() {
                         Name
                       </th>
                       <th className={`px-6 py-4 text-right text-xs font-semibold uppercase tracking-wider transition-colors duration-300 ${theme.textSecondary}`}>
+                        Weight
+                      </th>
+                      <th className={`px-6 py-4 text-right text-xs font-semibold uppercase tracking-wider transition-colors duration-300 ${theme.textSecondary}`}>
                         Shares
                       </th>
                       <th className={`px-6 py-4 text-right text-xs font-semibold uppercase tracking-wider transition-colors duration-300 ${theme.textSecondary}`}>
@@ -193,9 +202,6 @@ function App() {
                       </th>
                       <th className={`px-6 py-4 text-right text-xs font-semibold uppercase tracking-wider transition-colors duration-300 ${theme.textSecondary}`}>
                         Market Value
-                      </th>
-                      <th className={`px-6 py-4 text-right text-xs font-semibold uppercase tracking-wider transition-colors duration-300 ${theme.textSecondary}`}>
-                        Gain/Loss
                       </th>
                     </tr>
                   </thead>
@@ -209,6 +215,9 @@ function App() {
                           {holding.name || '-'}
                         </td>
                         <td className={`px-6 py-4 whitespace-nowrap text-sm text-right font-medium transition-colors duration-300 ${theme.textPrimary}`}>
+                          {holding.weight ? `${(holding.weight * 100).toFixed(2)}%` : '-'}
+                        </td>
+                        <td className={`px-6 py-4 whitespace-nowrap text-sm text-right font-medium transition-colors duration-300 ${theme.textPrimary}`}>
                           {holding.shares.toLocaleString()}
                         </td>
                         <td className={`px-6 py-4 whitespace-nowrap text-sm text-right font-medium transition-colors duration-300 ${theme.textPrimary}`}>
@@ -216,14 +225,6 @@ function App() {
                         </td>
                         <td className={`px-6 py-4 whitespace-nowrap text-sm text-right font-semibold transition-colors duration-300 ${theme.textPrimary}`}>
                           {formatCurrency(holding.marketValue)}
-                        </td>
-                        <td className={`px-6 py-4 whitespace-nowrap text-sm text-right font-semibold ${
-                          holding.unrealizedGain >= 0 ? 'text-green-600' : 'text-red-600'
-                        }`}>
-                          {formatCurrency(holding.unrealizedGain)}
-                          <span className="block text-xs font-normal">
-                            ({holding.unrealizedGainPercent.toFixed(1)}%)
-                          </span>
                         </td>
                       </tr>
                     ))}
@@ -235,8 +236,8 @@ function App() {
             {/* Portfolio Dashboard Section */}
             <PortfolioDashboard holdings={parseResult.holdings} isDarkMode={isDarkMode} />
 
-            {/* Performance Analytics Section - NEW P&L & TWR */}
-            <PerformanceAnalytics holdings={parseResult.holdings} isDarkMode={isDarkMode} />
+            {/* Performance Analytics Section - UPDATED WITH ANALYTICS PROP */}
+            <PerformanceAnalytics holdings={parseResult.holdings} analytics={parseResult.analytics} isDarkMode={isDarkMode} />
 
             {/* Performance Charts Section */}
             <PerformanceCharts holdings={parseResult.holdings} isDarkMode={isDarkMode} />
