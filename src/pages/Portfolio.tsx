@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { Calculator, FileText, BarChart3, Shield } from 'lucide-react';
-import { CSVUploader } from '../components/portfolio/CSVUploader';
+import { SimpleUploader } from '../components/portfolio/SimpleUploader';
 import { MetricsDisplay } from '../components/portfolio/MetricsDisplay';
 import { calculateRealPortfolioMetrics, PortfolioMetrics, PortfolioHolding } from '../services/calculations/metricsCalculator';
 import { ParseResult } from '../types/portfolio';
@@ -112,7 +112,7 @@ const Portfolio: React.FC = () => {
 
         {/* CSV Uploader */}
         <div className="mb-8">
-          <CSVUploader onDataParsed={handleDataParsed} />
+           <SimpleUploader onDataParsed={handleDataParsed} />
         </div>
 
         {/* Ready for Analytics */}

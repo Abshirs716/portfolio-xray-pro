@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { BarChart3, Shield, Upload, FileText, CheckCircle, Sun, Moon } from 'lucide-react'
 import './App.css'
-import { CSVUploader } from './components/portfolio/CSVUploader'
+import { SimpleUploader } from './components/portfolio/SimpleUploader'
 import { RiskAnalysis } from './components/portfolio/RiskAnalysis'
 import { PortfolioDashboard } from './components/portfolio/PortfolioDashboard'
 import { SectorAnalysis } from './components/portfolio/SectorAnalysis'
@@ -101,7 +101,7 @@ function App() {
 
         {/* Upload Section */}
         <div className="mb-8">
-          <CSVUploader onDataParsed={handleDataParsed} isDarkMode={isDarkMode} />
+          <SimpleUploader onDataParsed={handleDataParsed} isDarkMode={isDarkMode} />
         </div>
 
         {/* Results Section */}
