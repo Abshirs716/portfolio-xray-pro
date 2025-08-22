@@ -1,0 +1,11 @@
+Account Number,Account Name,Symbol,Description,Quantity,Last Price,Current Value,Cost Basis Total,Average Cost Basis,Unrealized Gain/Loss Dollar,Unrealized Gain/Loss Percent,Type
+Z89-234567,Joint Investment,VTSAX,Vanguard Total Stock Market Index,1250.456,$112.34,"$140,526.23","$125,000.00",$100.00,"$15,526.23",12.42%,Mutual Fund
+Z89-234567,Joint Investment,VTIAX,Vanguard Total Intl Stock Index,2100.789,$32.15,"$67,540.37","$65,000.00",$30.95,"$2,540.37",3.91%,Mutual Fund
+Z89-234567,Joint Investment,VBMFX,Vanguard Total Bond Market,3500.000,$10.85,"$37,975.00","$38,500.00",$11.00,($525.00),-1.36%,Mutual Fund
+Z89-234567,Joint Investment,SPY,SPDR S&P 500 ETF Trust,150,$445.67,"$66,850.50","$60,000.00",$400.00,"$6,850.50",11.42%,ETF
+Z89-234567,Joint Investment,QQQ,Invesco QQQ Trust,100,$385.45,"$38,545.00","$35,000.00",$350.00,"$3,545.00",10.13%,ETF
+Z89-234567,Joint Investment,IWM,iShares Russell 2000 ETF,200,$195.80,"$39,160.00","$38,000.00",$190.00,"$1,160.00",3.05%,ETF
+Z89-234567,Joint Investment,VNQ,Vanguard Real Estate ETF,300,$95.25,"$28,575.00","$30,000.00",$100.00,($1,425.00),-4.75%,ETF
+Z89-234567,Joint Investment,GLD,SPDR Gold Shares,100,$195.60,"$19,560.00","$18,000.00",$180.00,"$1,560.00",8.67%,ETF
+Z89-234567,Joint Investment,TLT,iShares 20+ Year Treasury Bond,250,$92.40,"$23,100.00","$25,000.00",$100.00,($1,900.00),-7.60%,ETF
+Z89-234567,Joint Investment,VIG,Vanguard Dividend Appreciation,175,$178.90,"$31,307.50","$28,000.00",$160.00,"$3,307.50",11.81%,ETF
