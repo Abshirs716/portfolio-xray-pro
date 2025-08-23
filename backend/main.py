@@ -6,7 +6,7 @@ import uvicorn
 import io
 from services.utils import normalize_custodian_csv
 from services.analytics import analyze_portfolio
-
+from routes.universal_ingest import router as universal_ingest_router
 
 app = FastAPI(
     title="CapX100 Backend",
@@ -23,6 +23,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Include the universal ingest router
+app.include_router(universal_ingest_router, prefix="/v3")
+
 @app.get("/")
 def root():
     return {"status": "CapX100 backend running"}
@@ -33,20 +36,17 @@ async def upload_files(files: List[UploadFile] = File(...)):
     for file in files:
         contents = await file.read()
         df = pd.read_csv(io.BytesIO(contents))
-        normalized = normalize_custodian_csv(df)  # Use the normalize function
+        normalized = normalize_custodian_csv(df)
         portfolios.append(normalized)
     
-    # Merge if multiple CSVs
     portfolio_data = pd.concat(portfolios, ignore_index=True) if portfolios else pd.DataFrame()
-    
-    # Analyze the portfolio
-    performance = analyze_portfolio(portfolio_data)  # Use the analyze function
+    performance = analyze_portfolio(portfolio_data)
     
     return {
         "message": "Files uploaded successfully",
         "rows": len(portfolio_data),
         "columns": list(portfolio_data.columns) if not portfolio_data.empty else [],
-        "performance": performance  # Return actual analysis
+        "performance": performance
     }
 
 if __name__ == "__main__":
