@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import UniversalUploaderLite, { ParseResult } from './components/portfolio/UniversalUploaderLite';
 import { PortfolioDashboard } from './components/portfolio/PortfolioDashboard';
 import { RiskAnalysis } from './components/portfolio/RiskAnalysis';
+import { SectorAnalysis } from './components/portfolio/SectorAnalysis';
 import './App.css';
 
 function App() {
@@ -20,8 +21,8 @@ function App() {
       name: h.name,
       shares: h.shares,
       price: h.price,
-      marketValue: h.market_value,  // Convert market_value to marketValue
-      costBasis: h.cost_basis || h.price * h.shares,  // Convert cost_basis to costBasis
+      marketValue: h.market_value,
+      costBasis: h.cost_basis || h.price * h.shares,
       weight: h.weight,
       sector: h.sector,
       currency: h.currency
@@ -37,7 +38,7 @@ function App() {
             CapX100 Portfolio X-Ray Pro™
           </h1>
           <p className="text-gray-400">
-            Universal Parser Working ✓ • With Dashboard & Risk Analysis
+            Universal Parser Working ✓ • With Dashboard, Risk & Sector Analysis
           </p>
         </div>
         
@@ -78,6 +79,12 @@ function App() {
             <div className="bg-gray-800 rounded-lg p-6">
               <h2 className="text-2xl font-bold mb-4">Risk Analysis - Full Transparency</h2>
               <RiskAnalysis holdings={convertHoldings(portfolioData.holdings)} isDarkMode={isDarkMode} />
+            </div>
+
+            {/* Sector Analysis Component */}
+            <div className="bg-gray-800 rounded-lg p-6">
+              <h2 className="text-2xl font-bold mb-4">Sector Analysis</h2>
+              <SectorAnalysis holdings={convertHoldings(portfolioData.holdings)} isDarkMode={isDarkMode} />
             </div>
 
             {/* Holdings Table */}
