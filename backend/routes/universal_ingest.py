@@ -142,6 +142,8 @@ def _normalize_positions(headers: List[str], rows: List[List[str]]) -> List[Dict
             header_map["quantity"] = i
         elif "price" in h:
             header_map["price"] = i
+        elif "cost" in h and ("basis" in h or "average" in h or h == "cost"):
+            header_map["cost_basis"] = i
         elif "value" in h or "amount" in h:
             if "market" in h:
                 header_map["market_value"] = i
@@ -164,12 +166,19 @@ def _normalize_positions(headers: List[str], rows: List[List[str]]) -> List[Dict
         if not symbol or not str(symbol).strip():
             continue
         
+        # convert numeric fields
+        quantity = _to_number(safe_get("quantity"))
+        price = _to_number(safe_get("price"))
+        market_value = _to_number(safe_get("market_value"))
+        cost_basis = _to_number(safe_get("cost_basis")) if safe_get("cost_basis") is not None else None
+        
         pos = {
             "symbol": str(symbol).strip().upper(),
             "name": safe_get("name") or str(symbol).strip().upper(),
-            "quantity": safe_get("quantity"),
-            "price": safe_get("price"),
-            "market_value": safe_get("market_value"),
+            "shares": quantity,
+            "price": price,
+            "market_value": market_value,
+            "cost_basis": cost_basis,
         }
         positions.append(pos)
     

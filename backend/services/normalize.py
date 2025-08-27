@@ -25,11 +25,16 @@ def sanitize_number(x: Any) -> Optional[float]:
         except Exception: return None
     s = str(x).strip()
     if not s: return None
+    
+    # Handle complex custodial formatting: """$18,723.00""" or """(10)"""
     s = s.replace('"""','').replace('"','').strip()
     if s.lower() in _NUM_NULLS: return None
-    neg = s.startswith("(") and s.endswith(")")
-    s = s.strip("() ").replace(",", "").replace("$", "").replace("%", "")
+    
+    # Handle parentheses for negative values (common in custodial exports)
+    neg = (s.startswith("(") and s.endswith(")")) or s.startswith("-")
+    s = s.strip("()- ").replace(",", "").replace("$", "").replace("%", "")
     s = re.sub(r"\s+", "", s)
+    
     try:
         v = float(s)
         return -v if neg else v
@@ -41,16 +46,16 @@ def _canon(h: str) -> str:
     return _CANON_RX.sub("", (h or "").lower()).strip()
 
 # =========================
-# Alias dictionary (extended)
+# Alias dictionary (extended for all custodians)
 # =========================
 
 ALIASES: Dict[str, List[str]] = {
     "symbol": ["symbol","ticker","security","securitysymbol","securityid","cusip","isin","sedol","underlying","product"],
-    "name": ["name","securityname","description","securitydescription","longname","seclongname","issue"],
+    "name": ["name","securityname","securitydescription","description","longname","seclongname","issue"],
     "shares": ["shares","quantity","qty","units","position","amountshares","positionqty","positionquantity","holdings","unitsheld"],
     "price": ["price","unitprice","shareprice","pricepershare","lastprice","closeprice","marketprice","currentprice","nav","px"],
     "market_value": ["marketvalue","value","mv","currentvalue","positionvalue","marketval","marketvalueusd","currentmarketvalue","valusd","valueusd","mktvalue","mvusd"],
-    "cost_basis": ["costbasis","bookvalue","avgcost","averagecost","bookcost","cost","purchaseprice","purchasecost","taxcost"],
+    "cost_basis": ["costbasis","cost","bookvalue","avgcost","averagecost","bookcost","purchaseprice","purchasecost","taxcost","basis","averageprice","avgprice","unitcost","totalcost"],
     "currency": ["currency","curr","ccy","fx"],
     "sector": ["sector","industry","gicssector","category"],
     "date": ["date","asof","pricedate","tradedate","valuationdate","reportdate"],
@@ -85,53 +90,165 @@ def _detect_delimiter_by_vote(lines: List[str]) -> str:
     return max(votes, key=votes.get) if sample else ","
 
 def _pick_header_from_rows(rows: List[List[str]]) -> Tuple[List[str], List[List[str]]]:
+    """Enhanced header detection for complex custodial formats"""
+    
     def looks_total(r: List[str]) -> bool:
         head = " ".join((c or "").lower() for c in r)[:100]
-        return any(k in head for k in ["total","grand total","summary","account total","page","report"])
+        return any(k in head for k in ["total","grand total","summary","account total","page","report","***"])
 
+    def looks_custodian_metadata(r: List[str]) -> bool:
+        """Detect custodian header rows like 'Charles Schwab & Co., Inc.' or 'Account: 123-456'"""
+        head = " ".join((c or "").lower() for c in r)[:200]
+        metadata_indicators = [
+            "charles schwab", "fidelity", "vanguard", "td ameritrade", 
+            "account:", "owner:", "as of", "positions export",
+            "interactive brokers", "etrade", "merrill lynch"
+        ]
+        return any(indicator in head for indicator in metadata_indicators)
+    
+    def is_data_header(r: List[str]) -> bool:
+        """Identify actual data headers vs metadata rows"""
+        if not r or len(r) < 3:
+            return False
+            
+        # Clean headers for analysis
+        clean_headers = []
+        for h in r:
+            if not h:
+                continue
+            # Remove quotes and clean
+            cleaned = str(h).replace('"""', '').replace('"', '').strip()
+            if cleaned:
+                clean_headers.append(cleaned.lower())
+        
+        if len(clean_headers) < 3:
+            return False
+            
+        # Check for financial data headers
+        financial_indicators = [
+            "symbol", "ticker", "security", "quantity", "shares", "price", 
+            "value", "market", "cost", "basis", "sector", "currency"
+        ]
+        
+        matches = sum(1 for header in clean_headers 
+                     for indicator in financial_indicators 
+                     if indicator in header)
+        
+        return matches >= 3
+
+    # Find candidate header rows (skip obvious metadata and totals)
     cand_idx: List[int] = []
-    for i, r in enumerate(rows[:120]):
+    for i, r in enumerate(rows[:20]):  # Look deeper for headers in complex files
+        if not r:
+            continue
+            
+        # Skip custodian metadata rows
+        if looks_custodian_metadata(r):
+            continue
+            
+        # Skip total rows
+        if looks_total(r):
+            continue
+            
+        # Must have enough non-empty cells
         nonempty = [c for c in r if str(c).strip()]
-        if len(nonempty) >= 3 and not looks_total(r):
+        if len(nonempty) >= 3:
             cand_idx.append(i)
+
     if not cand_idx:
         return ([], [])
 
+    # Score candidates to find the best header row
     best_i = cand_idx[0]
     best_score = -1.0
+    
     for i in cand_idx:
         r = rows[i]
-        tokens = [str(c).strip() for c in r]
-        if not tokens: continue
-        num_like = 0; word_like = 0
-        for t in tokens:
-            t2 = t.replace('"','').strip()
-            if re.fullmatch(r"[\$\(\)\d,\.\-\s%]+", t2):
-                num_like += 1
-            else:
-                word_like += 1
-        uniq = len(set(tokens))
-        score = word_like*1.5 + uniq*0.25 - num_like*0.5
+        
+        # Prioritize rows that look like data headers
+        if is_data_header(r):
+            score = 1000  # High base score for recognized data headers
+        else:
+            # Fallback scoring for non-obvious cases
+            tokens = [str(c).strip().replace('"""', '').replace('"', '') for c in r if c]
+            if not tokens:
+                continue
+                
+            num_like = 0
+            word_like = 0
+            
+            for t in tokens:
+                if re.fullmatch(r"[\$\(\)\d,\.\-\s%]+", t.replace('"', '')):
+                    num_like += 1
+                else:
+                    word_like += 1
+            
+            uniq = len(set(tokens))
+            score = word_like * 1.5 + uniq * 0.25 - num_like * 0.5
+        
         if score > best_score:
             best_score = score
             best_i = i
 
-    headers = [str(c or "").strip().strip('"') for c in rows[best_i]]
-    while headers and headers[-1] == "": headers.pop()
+    # Extract headers with complex formatting cleanup
+    headers = []
+    for c in rows[best_i]:
+        if c is None:
+            headers.append("")
+        else:
+            # Remove complex custodial formatting
+            cleaned = str(c).replace('"""', '').replace('"', '').strip()
+            headers.append(cleaned)
+    
+    # Remove trailing empty headers
+    while headers and headers[-1] == "":
+        headers.pop()
 
+    # Extract body rows (skip headers and metadata)
     body: List[List[str]] = []
-    for r in rows[best_i+1:]:
-        row = [str(c or "").strip() for c in r[:len(headers)]]
-        if len(row) < len(headers): row += [""]*(len(headers)-len(row))
-        if any(c.strip() for c in row): body.append(row)
+    for r in rows[best_i + 1:]:
+        # Skip total rows in body
+        if looks_total(r):
+            continue
+            
+        # Clean row data with complex formatting support
+        row = []
+        for j, c in enumerate(r[:len(headers)]):
+            if c is None:
+                row.append("")
+            else:
+                # Clean complex custodial formatting but preserve data
+                cleaned = str(c).replace('"""', '').strip()
+                row.append(cleaned)
+        
+        # Pad row to header length
+        while len(row) < len(headers):
+            row.append("")
+        
+        # Only include rows with actual data
+        if any(c.strip() for c in row):
+            body.append(row)
+
     return (headers, body)
 
 def _csv_text_to_rows(text: str) -> Tuple[List[str], List[List[str]], List[str]]:
     raw_lines = text.splitlines()
     preview = raw_lines[:50]
     delim = _detect_delimiter_by_vote(preview)
-    reader = csv.reader(io.StringIO(text), delimiter=delim, quotechar='"', skipinitialspace=True)
-    rows = [list(row) for row in reader]
+    
+    # Enhanced CSV reader for complex formats
+    reader = csv.reader(
+        io.StringIO(text), 
+        delimiter=delim, 
+        quotechar='"', 
+        skipinitialspace=True,
+        doublequote=True  # Handle double quotes properly
+    )
+    
+    rows = []
+    for row in reader:
+        rows.append(list(row))
+    
     headers, body = _pick_header_from_rows(rows)
     return (headers, body, preview)
 
@@ -259,7 +376,7 @@ def parse_positions(headers: List[str], rows: List[List[str]], idx: Dict[str, in
     for r in rows:
         if all(not (c and c.strip()) for c in r): continue
         joined = " ".join((c or "").lower() for c in r)
-        if "total" in joined and "market" in joined: continue
+        if "total" in joined and ("market" in joined or "***" in joined): continue
 
         symbol = (_cell(r, idx.get("symbol")) or _cell(r, idx.get("name")) or "").strip()
         if not symbol: continue
