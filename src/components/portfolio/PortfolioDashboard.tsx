@@ -12,9 +12,13 @@ export const PortfolioDashboard: React.FC<PortfolioDashboardProps> = ({ holdings
   const [selectedView, setSelectedView] = useState<'overview' | 'sectors' | 'performance'>('overview');
   const [showCalculations, setShowCalculations] = useState(false);
 
-  // Calculate portfolio metrics with detailed calculations
+  // Calculate portfolio metrics with detailed calculations - FIXED
   const totalValue = holdings.reduce((sum, holding) => sum + holding.marketValue, 0);
-  const totalCost = holdings.reduce((sum, holding) => sum + holding.costBasis, 0);
+  const totalCost = holdings.reduce((sum, holding) => {
+    // Use totalCost if available, otherwise calculate from costBasis * shares
+    const positionCost = holding.totalCost || (holding.costBasis * holding.shares);
+    return sum + positionCost;
+  }, 0);
   const totalGain = totalValue - totalCost;
   const totalGainPercent = totalCost > 0 ? (totalGain / totalCost) * 100 : 0;
 
@@ -22,9 +26,16 @@ export const PortfolioDashboard: React.FC<PortfolioDashboardProps> = ({ holdings
   const sortedHoldings = [...holdings].sort((a, b) => b.marketValue - a.marketValue);
   const topHoldings = sortedHoldings.slice(0, 5);
 
-  // Calculate winners and losers
-  const winners = holdings.filter(h => h.unrealizedGain > 0).sort((a, b) => b.unrealizedGainPercent - a.unrealizedGainPercent).slice(0, 3);
-  const losers = holdings.filter(h => h.unrealizedGain < 0).sort((a, b) => a.unrealizedGainPercent - b.unrealizedGainPercent).slice(0, 3);
+  // Calculate winners and losers - FIXED to handle missing unrealizedGain fields
+  const winnersAndLosers = holdings.map(h => ({
+    ...h,
+    unrealizedGain: h.unrealizedGain || (h.marketValue - (h.totalCost || h.costBasis * h.shares)),
+    unrealizedGainPercent: h.unrealizedGainPercent || ((h.totalCost || h.costBasis * h.shares) > 0 ? 
+      ((h.marketValue - (h.totalCost || h.costBasis * h.shares)) / (h.totalCost || h.costBasis * h.shares)) * 100 : 0)
+  }));
+  
+  const winners = winnersAndLosers.filter(h => h.unrealizedGain > 0).sort((a, b) => b.unrealizedGainPercent - a.unrealizedGainPercent).slice(0, 3);
+  const losers = winnersAndLosers.filter(h => h.unrealizedGain < 0).sort((a, b) => a.unrealizedGainPercent - b.unrealizedGainPercent).slice(0, 3);
 
   // Mock sector allocation (in real app, would map symbols to sectors)
   const sectorData = [
@@ -149,17 +160,17 @@ export const PortfolioDashboard: React.FC<PortfolioDashboardProps> = ({ holdings
         }`}>
           <h4 className={`text-lg font-bold mb-4 flex items-center transition-colors duration-300 ${theme.textPrimary}`}>
             <Calculator className="w-5 h-5 mr-2" />
-            🔍 100% Transparent Portfolio Calculations
+            100% Transparent Portfolio Calculations
           </h4>
           
           <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
             {/* Portfolio Value Calculation */}
             <div className={`rounded border p-4 transition-all duration-300 ${theme.calcBg}`}>
-              <p className="text-xs font-bold text-green-600 mb-2">💰 PORTFOLIO VALUE CALCULATION:</p>
+              <p className="text-xs font-bold text-green-600 mb-2">PORTFOLIO VALUE CALCULATION:</p>
               <p className={`text-xs transition-colors duration-300 ${theme.textSecondary}`}>Sum of all holding market values</p>
               {holdings.slice(0, 3).map((holding, index) => (
                 <p key={index} className={`text-xs transition-colors duration-300 ${theme.textSecondary}`}>
-                  {holding.symbol}: {holding.shares} × ${holding.currentPrice} = {formatCurrency(holding.marketValue)}
+                  {holding.symbol}: {holding.shares} × ${holding.price} = {formatCurrency(holding.marketValue)}
                 </p>
               ))}
               {holdings.length > 3 && <p className={`text-xs transition-colors duration-300 ${theme.textSecondary}`}>+ {holdings.length - 3} more positions...</p>}
@@ -168,7 +179,7 @@ export const PortfolioDashboard: React.FC<PortfolioDashboardProps> = ({ holdings
 
             {/* Win Rate Calculation */}
             <div className={`rounded border p-4 transition-all duration-300 ${theme.calcBg}`}>
-              <p className="text-xs font-bold text-blue-600 mb-2">🏆 WIN RATE CALCULATION:</p>
+              <p className="text-xs font-bold text-blue-600 mb-2">WIN RATE CALCULATION:</p>
               <p className={`text-xs transition-colors duration-300 ${theme.textSecondary}`}>Winning Positions ÷ Total Positions × 100</p>
               <p className={`text-xs transition-colors duration-300 ${theme.textSecondary}`}>Winning Positions: {performanceCalculations.winningPositions}</p>
               <p className={`text-xs transition-colors duration-300 ${theme.textSecondary}`}>Total Positions: {performanceCalculations.totalPositions}</p>
@@ -179,7 +190,7 @@ export const PortfolioDashboard: React.FC<PortfolioDashboardProps> = ({ holdings
 
             {/* Concentration Calculation */}
             <div className={`rounded border p-4 transition-all duration-300 ${theme.calcBg}`}>
-              <p className="text-xs font-bold text-purple-600 mb-2">🎯 CONCENTRATION CALCULATION:</p>
+              <p className="text-xs font-bold text-purple-600 mb-2">CONCENTRATION CALCULATION:</p>
               <p className={`text-xs transition-colors duration-300 ${theme.textSecondary}`}>Top 5 Holdings ÷ Total Portfolio × 100</p>
               <p className={`text-xs transition-colors duration-300 ${theme.textSecondary}`}>Top 5 Value: {formatCurrency(concentrationCalculations.top5Value)}</p>
               <p className={`text-xs transition-colors duration-300 ${theme.textSecondary}`}>Total Value: {formatCurrency(totalValue)}</p>
@@ -190,7 +201,7 @@ export const PortfolioDashboard: React.FC<PortfolioDashboardProps> = ({ holdings
 
             {/* Average Winner Calculation */}
             <div className={`rounded border p-4 transition-all duration-300 ${theme.calcBg}`}>
-              <p className="text-xs font-bold text-emerald-600 mb-2">📈 AVERAGE WINNER CALCULATION:</p>
+              <p className="text-xs font-bold text-emerald-600 mb-2">AVERAGE WINNER CALCULATION:</p>
               <p className={`text-xs transition-colors duration-300 ${theme.textSecondary}`}>Sum of Winner Returns ÷ Number of Winners</p>
               {winners.slice(0, 2).map((winner, index) => (
                 <p key={index} className={`text-xs transition-colors duration-300 ${theme.textSecondary}`}>
@@ -204,19 +215,19 @@ export const PortfolioDashboard: React.FC<PortfolioDashboardProps> = ({ holdings
 
             {/* Sector Allocation Calculation */}
             <div className={`rounded border p-4 transition-all duration-300 ${theme.calcBg}`}>
-              <p className="text-xs font-bold text-orange-600 mb-2">🔄 SECTOR ALLOCATION:</p>
+              <p className="text-xs font-bold text-orange-600 mb-2">SECTOR ALLOCATION:</p>
               <p className={`text-xs transition-colors duration-300 ${theme.textSecondary}`}>Based on sector classification mapping</p>
               <p className={`text-xs transition-colors duration-300 ${theme.textSecondary}`}>Technology: {formatCurrency(sectorData[0].value)} (35%)</p>
               <p className={`text-xs transition-colors duration-300 ${theme.textSecondary}`}>Healthcare: {formatCurrency(sectorData[1].value)} (18%)</p>
               <p className="text-xs font-bold text-orange-600 mt-1">6 sectors total</p>
             </div>
 
-            {/* Return Calculation */}
+            {/* Return Calculation - FIXED */}
             <div className={`rounded border p-4 transition-all duration-300 ${theme.calcBg}`}>
-              <p className="text-xs font-bold text-red-600 mb-2">📊 RETURN CALCULATION:</p>
-              <p className={`text-xs transition-colors duration-300 ${theme.textSecondary}`}>(Current Value - Cost Basis) ÷ Cost Basis × 100</p>
+              <p className="text-xs font-bold text-red-600 mb-2">RETURN CALCULATION:</p>
+              <p className={`text-xs transition-colors duration-300 ${theme.textSecondary}`}>(Current Value - Total Cost) ÷ Total Cost × 100</p>
               <p className={`text-xs transition-colors duration-300 ${theme.textSecondary}`}>Current Value: {formatCurrency(totalValue)}</p>
-              <p className={`text-xs transition-colors duration-300 ${theme.textSecondary}`}>Cost Basis: {formatCurrency(totalCost)}</p>
+              <p className={`text-xs transition-colors duration-300 ${theme.textSecondary}`}>Total Cost: {formatCurrency(totalCost)}</p>
               <p className="text-xs font-bold text-red-600 mt-1">
                 Return: ({formatCurrency(totalValue)} - {formatCurrency(totalCost)}) ÷ {formatCurrency(totalCost)} = {totalGainPercent.toFixed(1)}%
               </p>

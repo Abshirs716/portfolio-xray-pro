@@ -14,10 +14,22 @@ app = FastAPI(
     version="0.1.0"
 )
 
-# Allow frontend (localhost:5173) to talk to backend
+# CORS configuration - FIXED to include port 5175
+ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+    "http://localhost:5173",
+    "http://localhost:5174",
+    "http://localhost:5175",
+    "http://127.0.0.1:3000",
+    "http://127.0.0.1:5173",
+    "http://127.0.0.1:5174",
+    "http://127.0.0.1:5175",
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:5174"],
+    allow_origins=ALLOWED_ORIGINS,
+    allow_origin_regex=r"http://localhost:\d{4}$",  # Allow any localhost:PORT
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -29,6 +41,10 @@ app.include_router(universal_ingest_router, prefix="/v3")
 @app.get("/")
 def root():
     return {"status": "CapX100 backend running"}
+
+@app.get("/health")
+def health_check():
+    return {"status": "ok"}
 
 @app.post("/upload")
 async def upload_files(files: List[UploadFile] = File(...)):

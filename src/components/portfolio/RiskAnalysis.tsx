@@ -11,9 +11,13 @@ interface RiskAnalysisProps {
 export const RiskAnalysis: React.FC<RiskAnalysisProps> = ({ holdings, isDarkMode = false }) => {
   const [showCalculations, setShowCalculations] = useState(false);
 
-  // Calculate portfolio metrics
+  // Calculate portfolio metrics - FIXED
   const totalValue = holdings.reduce((sum, holding) => sum + holding.marketValue, 0);
-  const totalCost = holdings.reduce((sum, holding) => sum + holding.costBasis, 0);
+  const totalCost = holdings.reduce((sum, holding) => {
+    // Use totalCost if available, otherwise calculate from costBasis * shares
+    const positionCost = holding.totalCost || (holding.costBasis * holding.shares);
+    return sum + positionCost;
+  }, 0);
   const totalGain = totalValue - totalCost;
   const totalGainPercent = totalCost > 0 ? (totalGain / totalCost) * 100 : 0;
 
@@ -291,13 +295,13 @@ export const RiskAnalysis: React.FC<RiskAnalysisProps> = ({ holdings, isDarkMode
         }`}>
           <h4 className={`text-lg font-bold mb-4 flex items-center transition-colors duration-300 ${theme.textPrimary}`}>
             <Calculator className="w-5 h-5 mr-2" />
-            🔍 100% Transparent Risk Calculations - ALL 8 METRICS
+            100% Transparent Risk Calculations - ALL 8 METRICS
           </h4>
           
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {/* Sharpe Ratio Calculation */}
             <div className={`rounded border p-4 transition-all duration-300 ${theme.calcBg}`}>
-              <p className="text-xs font-bold text-blue-600 mb-2">📊 SHARPE RATIO CALCULATION:</p>
+              <p className="text-xs font-bold text-blue-600 mb-2">SHARPE RATIO CALCULATION:</p>
               <p className={`text-xs transition-colors duration-300 ${theme.textSecondary}`}>{riskCalculations.sharpeRatio.calculation.formula}</p>
               <p className={`text-xs transition-colors duration-300 ${theme.textSecondary}`}>Portfolio Return: {riskCalculations.sharpeRatio.calculation.portfolioReturn.toFixed(1)}%</p>
               <p className={`text-xs transition-colors duration-300 ${theme.textSecondary}`}>Risk-Free Rate: {riskCalculations.sharpeRatio.calculation.riskFreeRate}%</p>
@@ -307,7 +311,7 @@ export const RiskAnalysis: React.FC<RiskAnalysisProps> = ({ holdings, isDarkMode
 
             {/* Sortino Ratio Calculation */}
             <div className={`rounded border p-4 transition-all duration-300 ${theme.calcBg}`}>
-              <p className="text-xs font-bold text-purple-600 mb-2">📈 SORTINO RATIO CALCULATION:</p>
+              <p className="text-xs font-bold text-purple-600 mb-2">SORTINO RATIO CALCULATION:</p>
               <p className={`text-xs transition-colors duration-300 ${theme.textSecondary}`}>{riskCalculations.sortinoRatio.calculation.formula}</p>
               <p className={`text-xs transition-colors duration-300 ${theme.textSecondary}`}>Portfolio Return: {riskCalculations.sortinoRatio.calculation.portfolioReturn.toFixed(1)}%</p>
               <p className={`text-xs transition-colors duration-300 ${theme.textSecondary}`}>Risk-Free Rate: {riskCalculations.sortinoRatio.calculation.riskFreeRate}%</p>
@@ -317,7 +321,7 @@ export const RiskAnalysis: React.FC<RiskAnalysisProps> = ({ holdings, isDarkMode
 
             {/* Beta Calculation */}
             <div className={`rounded border p-4 transition-all duration-300 ${theme.calcBg}`}>
-              <p className="text-xs font-bold text-orange-600 mb-2">⚡ BETA CALCULATION:</p>
+              <p className="text-xs font-bold text-orange-600 mb-2">BETA CALCULATION:</p>
               <p className={`text-xs transition-colors duration-300 ${theme.textSecondary}`}>{riskCalculations.beta.calculation.formula}</p>
               <p className={`text-xs transition-colors duration-300 ${theme.textSecondary}`}>Portfolio Volatility: {riskCalculations.beta.calculation.portfolioVolatility}%</p>
               <p className={`text-xs transition-colors duration-300 ${theme.textSecondary}`}>Market Volatility: {riskCalculations.beta.calculation.marketVolatility}%</p>
@@ -327,7 +331,7 @@ export const RiskAnalysis: React.FC<RiskAnalysisProps> = ({ holdings, isDarkMode
 
             {/* Standard Deviation Calculation */}
             <div className={`rounded border p-4 transition-all duration-300 ${theme.calcBg}`}>
-              <p className="text-xs font-bold text-indigo-600 mb-2">📊 STANDARD DEVIATION:</p>
+              <p className="text-xs font-bold text-indigo-600 mb-2">STANDARD DEVIATION:</p>
               <p className={`text-xs transition-colors duration-300 ${theme.textSecondary}`}>{riskCalculations.standardDeviation.calculation.formula}</p>
               <p className={`text-xs transition-colors duration-300 ${theme.textSecondary}`}>{riskCalculations.standardDeviation.calculation.step1}</p>
               <p className={`text-xs transition-colors duration-300 ${theme.textSecondary}`}>{riskCalculations.standardDeviation.calculation.step2}</p>
@@ -336,7 +340,7 @@ export const RiskAnalysis: React.FC<RiskAnalysisProps> = ({ holdings, isDarkMode
 
             {/* Max Drawdown Calculation */}
             <div className={`rounded border p-4 transition-all duration-300 ${theme.calcBg}`}>
-              <p className="text-xs font-bold text-red-600 mb-2">📉 MAX DRAWDOWN CALCULATION:</p>
+              <p className="text-xs font-bold text-red-600 mb-2">MAX DRAWDOWN CALCULATION:</p>
               <p className={`text-xs transition-colors duration-300 ${theme.textSecondary}`}>{riskCalculations.maxDrawdown.calculation.formula}</p>
               <p className={`text-xs transition-colors duration-300 ${theme.textSecondary}`}>{riskCalculations.maxDrawdown.calculation.step1}</p>
               <p className={`text-xs transition-colors duration-300 ${theme.textSecondary}`}>{riskCalculations.maxDrawdown.calculation.step2}</p>
@@ -346,7 +350,7 @@ export const RiskAnalysis: React.FC<RiskAnalysisProps> = ({ holdings, isDarkMode
 
             {/* Value at Risk Calculation */}
             <div className={`rounded border p-4 transition-all duration-300 ${theme.calcBg}`}>
-              <p className="text-xs font-bold text-yellow-600 mb-2">⚠️ VALUE AT RISK (95%):</p>
+              <p className="text-xs font-bold text-yellow-600 mb-2">VALUE AT RISK (95%):</p>
               <p className={`text-xs transition-colors duration-300 ${theme.textSecondary}`}>{riskCalculations.valueAtRisk.calculation.formula}</p>
               <p className={`text-xs transition-colors duration-300 ${theme.textSecondary}`}>{riskCalculations.valueAtRisk.calculation.step1}</p>
               <p className={`text-xs transition-colors duration-300 ${theme.textSecondary}`}>{riskCalculations.valueAtRisk.calculation.step2}</p>
@@ -356,7 +360,7 @@ export const RiskAnalysis: React.FC<RiskAnalysisProps> = ({ holdings, isDarkMode
 
             {/* Information Ratio Calculation */}
             <div className={`rounded border p-4 transition-all duration-300 ${theme.calcBg}`}>
-              <p className="text-xs font-bold text-teal-600 mb-2">📊 INFORMATION RATIO:</p>
+              <p className="text-xs font-bold text-teal-600 mb-2">INFORMATION RATIO:</p>
               <p className={`text-xs transition-colors duration-300 ${theme.textSecondary}`}>{riskCalculations.informationRatio.calculation.formula}</p>
               <p className={`text-xs transition-colors duration-300 ${theme.textSecondary}`}>Portfolio Return: {riskCalculations.informationRatio.calculation.portfolioReturn.toFixed(1)}%</p>
               <p className={`text-xs transition-colors duration-300 ${theme.textSecondary}`}>Benchmark Return: {riskCalculations.informationRatio.calculation.benchmarkReturn}%</p>
@@ -366,7 +370,7 @@ export const RiskAnalysis: React.FC<RiskAnalysisProps> = ({ holdings, isDarkMode
 
             {/* Treynor Ratio Calculation */}
             <div className={`rounded border p-4 transition-all duration-300 ${theme.calcBg}`}>
-              <p className="text-xs font-bold text-pink-600 mb-2">📈 TREYNOR RATIO:</p>
+              <p className="text-xs font-bold text-pink-600 mb-2">TREYNOR RATIO:</p>
               <p className={`text-xs transition-colors duration-300 ${theme.textSecondary}`}>{riskCalculations.treynorRatio.calculation.formula}</p>
               <p className={`text-xs transition-colors duration-300 ${theme.textSecondary}`}>Portfolio Return: {riskCalculations.treynorRatio.calculation.portfolioReturn.toFixed(1)}%</p>
               <p className={`text-xs transition-colors duration-300 ${theme.textSecondary}`}>Risk-Free Rate: {riskCalculations.treynorRatio.calculation.riskFreeRate}%</p>
