@@ -51,9 +51,15 @@ function pickHeader(headers: string[] = [], candidates: string[]): string | unde
   for (let i=0;i<ch.length;i++){
     const h = ch[i];
     for (const a of candidates){
-      if (h === a) { if (300>bestScore){bestScore=300;bestIdx=i;} }
-      else if (h.endsWith(a) || a.endsWith(h)) { if (200>bestScore){bestScore=200;bestIdx=i;} }
-      else if (h.includes(a)) { if (120>bestScore){bestScore=120;bestIdx=i;} }
+      let score = 0;
+      if (h === a) { score = 300; }
+      else if (h.endsWith(a) || a.endsWith(h)) { score = 200; }
+      else if (h.includes(a)) { score = 120; }
+      
+      if (score > bestScore) {
+        bestScore = score;
+        bestIdx = i;
+      }
     }
   }
   return bestIdx >= 0 ? headers[bestIdx] : undefined;
@@ -63,6 +69,13 @@ function buildAutoMapping(files: ParseResult['metadata']['files'] = []) {
   const mapping: Record<string, Record<string,string>> = {};
   for (const f of files) {
     if (!f || !f.filename || !f.headers) continue;
+    
+    // Skip price files - they shouldn't be mapped as positions
+    if (f.type === 'prices') {
+      console.log(`[Skipping mapping for price file]: ${f.filename}`);
+      continue;
+    }
+    
     const map: Record<string,string> = {};
     const s = pickHeader(f.headers, ALIASES.symbol); if (s) map.symbol = s;
     const q = pickHeader(f.headers, ALIASES.shares); if (q) map.shares = q;
@@ -86,12 +99,18 @@ const UniversalUploaderLite: React.FC<Props> = ({ onDataParsed, isDarkMode }) =>
     setFiles(selectedFiles);
     setError(null);
   };
+  
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     const droppedFiles = Array.from(e.dataTransfer.files);
-    setFiles(droppedFiles); setError(null);
+    setFiles(droppedFiles); 
+    setError(null);
   }, []);
-  const handleDragOver = useCallback((e: React.DragEvent) => { e.preventDefault(); }, []);
+  
+  const handleDragOver = useCallback((e: React.DragEvent) => { 
+    e.preventDefault(); 
+  }, []);
+  
   const removeFile = (index: number) => setFiles(files.filter((_, i) => i !== index));
 
   const postUpload = async (mapping?: Record<string, Record<string,string>>) => {
@@ -112,14 +131,34 @@ const UniversalUploaderLite: React.FC<Props> = ({ onDataParsed, isDarkMode }) =>
     try {
       // 1st pass
       let result: ParseResult = await postUpload();
-      // If zero positions but mapping is required → build auto mapping and retry once
+      console.log('[First pass result]:', result);
+      
+      // Check if file types are detected
       const filesInfo = result?.metadata?.files || [];
+      const hasPriceFiles = filesInfo.some(f => f.type === 'prices');
+      const hasPositionFiles = filesInfo.some(f => f.type === 'positions');
+      
+      if (hasPriceFiles && !hasPositionFiles) {
+        console.log('[Price file detected, no positions expected]');
+        // Don't try to map price files
+        setParseResult(result);
+        onDataParsed(result);
+        setFiles([]);
+        return;
+      }
+      
+      // If zero positions but mapping is required → build auto mapping and retry once
       const needsMapping = filesInfo.some(f => f.require_mapping);
+      console.log('[Needs mapping check]:', { positions: result.totals.positions_count, needsMapping, autoMapped });
+      
       if ((result.totals.positions_count === 0 || needsMapping) && !autoMapped) {
         const mapping = buildAutoMapping(filesInfo);
+        console.log('[Auto mapping built]:', mapping);
+        
         if (Object.keys(mapping).length > 0) {
           setAutoMapped(true);
           result = await postUpload(mapping); // 2nd pass with mapping
+          console.log('[Second pass result]:', result);
         }
       }
       setParseResult(result);
@@ -135,7 +174,6 @@ const UniversalUploaderLite: React.FC<Props> = ({ onDataParsed, isDarkMode }) =>
   const formatCurrency = (value: number) =>
     new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 }).format(value);
 
-  // (styles omitted for brevity – keep your existing ones)
   const uploadZoneStyle: React.CSSProperties = {
     border: '2px dashed #4a5568', borderRadius: '8px', padding: '2rem', textAlign: 'center',
     cursor: 'pointer', backgroundColor: isDarkMode ? '#1a202c' : '#f7fafc', transition: 'all 0.3s',

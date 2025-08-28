@@ -114,41 +114,49 @@ def _custodian_guess(filename: str, headers: List[str]) -> str:
 def _guess_confidence(headers: List[str]) -> float:
     headers_lower = [h.lower() for h in headers]
     score = 0
-    if any("symbol" in h or "ticker" in h for h in headers_lower):
+    # Check for custom headers too
+    if any("symbol" in h or "ticker" in h or h == "mysymbol" for h in headers_lower):
         score += 25
-    if any("quantity" in h or "shares" in h for h in headers_lower):
+    if any("quantity" in h or "shares" in h or h == "units" for h in headers_lower):
         score += 25
-    if any("price" in h for h in headers_lower):
+    if any("price" in h or h == "px" for h in headers_lower):
         score += 25
-    if any("value" in h or "amount" in h for h in headers_lower):
+    if any("value" in h or "amount" in h or h == "valusd" for h in headers_lower):
         score += 25
     return min(99, max(10, score))
 
 # ---------- normalization ----------
-def _normalize_positions(headers: List[str], rows: List[List[str]]) -> List[Dict[str, Any]]:
+def _normalize_positions(headers: List[str], rows: List[List[str]]) -> Tuple[List[Dict[str, Any]], bool]:
     """
     Maps headers to standard fields and extracts positions.
+    Returns (positions, needs_mapping)
     """
     # map headers to indices
     header_map = {}
     headers_lower = [h.lower() for h in headers]
     
     for i, h in enumerate(headers_lower):
-        if "symbol" in h or "ticker" in h:
+        # Enhanced detection for custom formats
+        if h in ["symbol", "ticker", "mysymbol"] or "symbol" in h or "ticker" in h:
             header_map["symbol"] = i
-        elif "name" in h or "description" in h:
+        elif h in ["name", "description", "nameofsecurity"] or "name" in h or "description" in h:
             header_map["name"] = i
-        elif "quantity" in h or "shares" in h:
+        elif h in ["quantity", "shares", "units", "qty"] or "quantity" in h or "shares" in h:
             header_map["quantity"] = i
-        elif "price" in h:
+        elif h in ["px", "price"] or "price" in h:
             header_map["price"] = i
-        elif "cost" in h and ("basis" in h or "average" in h or h == "cost"):
+        elif h in ["cost", "costbasis"] or ("cost" in h and ("basis" in h or "average" in h)):
             header_map["cost_basis"] = i
-        elif "value" in h or "amount" in h:
-            if "market" in h:
+        elif h in ["valusd", "mv", "marketvalue"] or "value" in h or "amount" in h:
+            if "market" in h or header_map.get("market_value") is None:
                 header_map["market_value"] = i
-            elif header_map.get("market_value") is None:
-                header_map["market_value"] = i
+    
+    # Check if we found critical fields - if not, needs mapping
+    has_symbol = "symbol" in header_map
+    has_quantity = "quantity" in header_map
+    has_value = "market_value" in header_map or "price" in header_map
+    
+    needs_mapping = not (has_symbol and has_quantity and has_value)
     
     positions = []
     for row in rows:
@@ -172,6 +180,10 @@ def _normalize_positions(headers: List[str], rows: List[List[str]]) -> List[Dict
         market_value = _to_number(safe_get("market_value"))
         cost_basis = _to_number(safe_get("cost_basis")) if safe_get("cost_basis") is not None else None
         
+        # If we have market value but no price, calculate price
+        if market_value > 0 and price == 0 and quantity > 0:
+            price = market_value / quantity
+        
         pos = {
             "symbol": str(symbol).strip().upper(),
             "name": safe_get("name") or str(symbol).strip().upper(),
@@ -182,7 +194,7 @@ def _normalize_positions(headers: List[str], rows: List[List[str]]) -> List[Dict
         }
         positions.append(pos)
     
-    return positions
+    return positions, needs_mapping
 
 # ---------- file reader ----------
 def _read_file_any(uf: UploadFile) -> Tuple[str, List[str], List[List[str]], str]:

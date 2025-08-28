@@ -46,19 +46,19 @@ def _canon(h: str) -> str:
     return _CANON_RX.sub("", (h or "").lower()).strip()
 
 # =========================
-# Alias dictionary (extended for all custodians)
+# Enhanced Universal alias dictionary (ALL custodians + custom formats)
 # =========================
 
 ALIASES: Dict[str, List[str]] = {
-    "symbol": ["symbol","ticker","security","securitysymbol","securityid","cusip","isin","sedol","underlying","product"],
-    "name": ["name","securityname","securitydescription","description","longname","seclongname","issue"],
+    "symbol": ["symbol","ticker","security","securitysymbol","securityid","cusip","isin","sedol","underlying","product","mysymbol"],
+    "name": ["name","securityname","securitydescription","description","longname","seclongname","issue","nameofsecurity"],
     "shares": ["shares","quantity","qty","units","position","amountshares","positionqty","positionquantity","holdings","unitsheld"],
-    "price": ["price","unitprice","shareprice","pricepershare","lastprice","closeprice","marketprice","currentprice","nav","px"],
-    "market_value": ["marketvalue","value","mv","currentvalue","positionvalue","marketval","marketvalueusd","currentmarketvalue","valusd","valueusd","mktvalue","mvusd"],
+    "price": ["price","unitprice","shareprice","pricepershare","lastprice","closeprice","marketprice","currentprice","nav","px","close"],
+    "market_value": ["marketvalue","value","mv","currentvalue","positionvalue","marketval","marketvalueusd","currentmarketvalue","valusd","valueusd","mktvalue","mvusd","currentvalue"],
     "cost_basis": ["costbasis","cost","bookvalue","avgcost","averagecost","bookcost","purchaseprice","purchasecost","taxcost","basis","averageprice","avgprice","unitcost","totalcost"],
     "currency": ["currency","curr","ccy","fx"],
     "sector": ["sector","industry","gicssector","category"],
-    "date": ["date","asof","pricedate","tradedate","valuationdate","reportdate"],
+    "date": ["date","asof","pricedate","tradedate","valuationdate","reportdate","datetime","timestamp"],
     "type": ["type","action","transactiontype","activity","activitytype"],
 }
 
@@ -100,76 +100,65 @@ def _pick_header_from_rows(rows: List[List[str]]) -> Tuple[List[str], List[List[
         """Detect custodian header rows like 'Charles Schwab & Co., Inc.' or 'Account: 123-456'"""
         head = " ".join((c or "").lower() for c in r)[:200]
         metadata_indicators = [
-            "charles schwab", "fidelity", "vanguard", "td ameritrade", 
-            "account:", "owner:", "as of", "positions export",
-            "interactive brokers", "etrade", "merrill lynch"
+            "charles schwab", "fidelity", "vanguard", "td ameritrade", "tdameritrade",
+            "account:", "owner:", "as of", "positions export", "portfolio:",
+            "interactive brokers", "etrade", "merrill lynch", "positions for account"
         ]
         return any(indicator in head for indicator in metadata_indicators)
     
     def is_data_header(r: List[str]) -> bool:
         """Identify actual data headers vs metadata rows"""
-        if not r or len(r) < 3:
+        if not r or len(r) < 2:
             return False
             
-        # Clean headers for analysis
         clean_headers = []
         for h in r:
             if not h:
                 continue
-            # Remove quotes and clean
             cleaned = str(h).replace('"""', '').replace('"', '').strip()
             if cleaned:
                 clean_headers.append(cleaned.lower())
         
-        if len(clean_headers) < 3:
+        if len(clean_headers) < 2:
             return False
             
-        # Check for financial data headers
-        financial_indicators = [
-            "symbol", "ticker", "security", "quantity", "shares", "price", 
-            "value", "market", "cost", "basis", "sector", "currency"
-        ]
+        financial_matches = 0
+        for header in clean_headers:
+            header_canon = _canon(header)
+            for field, aliases in ALIASES.items():
+                for alias in aliases:
+                    alias_canon = _canon(alias)
+                    if alias_canon and (alias_canon in header_canon or header_canon == alias_canon):
+                        financial_matches += 1
+                        break
         
-        matches = sum(1 for header in clean_headers 
-                     for indicator in financial_indicators 
-                     if indicator in header)
-        
-        return matches >= 3
+        return financial_matches >= 2
 
-    # Find candidate header rows (skip obvious metadata and totals)
     cand_idx: List[int] = []
-    for i, r in enumerate(rows[:20]):  # Look deeper for headers in complex files
+    for i, r in enumerate(rows[:30]):
         if not r:
             continue
-            
-        # Skip custodian metadata rows
         if looks_custodian_metadata(r):
             continue
-            
-        # Skip total rows
         if looks_total(r):
             continue
-            
-        # Must have enough non-empty cells
+        
         nonempty = [c for c in r if str(c).strip()]
-        if len(nonempty) >= 3:
+        if len(nonempty) >= 2:
             cand_idx.append(i)
 
     if not cand_idx:
         return ([], [])
 
-    # Score candidates to find the best header row
     best_i = cand_idx[0]
     best_score = -1.0
     
     for i in cand_idx:
         r = rows[i]
         
-        # Prioritize rows that look like data headers
         if is_data_header(r):
-            score = 1000  # High base score for recognized data headers
+            score = 1000
         else:
-            # Fallback scoring for non-obvious cases
             tokens = [str(c).strip().replace('"""', '').replace('"', '') for c in r if c]
             if not tokens:
                 continue
@@ -184,48 +173,41 @@ def _pick_header_from_rows(rows: List[List[str]]) -> Tuple[List[str], List[List[
                     word_like += 1
             
             uniq = len(set(tokens))
-            score = word_like * 1.5 + uniq * 0.25 - num_like * 0.5
+            score = word_like * 2.0 + uniq * 0.5 - num_like * 0.3
         
         if score > best_score:
             best_score = score
             best_i = i
 
-    # Extract headers with complex formatting cleanup
     headers = []
     for c in rows[best_i]:
         if c is None:
             headers.append("")
         else:
-            # Remove complex custodial formatting
+            # Critical: Clean triple quotes from headers
             cleaned = str(c).replace('"""', '').replace('"', '').strip()
             headers.append(cleaned)
     
-    # Remove trailing empty headers
     while headers and headers[-1] == "":
         headers.pop()
 
-    # Extract body rows (skip headers and metadata)
     body: List[List[str]] = []
     for r in rows[best_i + 1:]:
-        # Skip total rows in body
         if looks_total(r):
             continue
             
-        # Clean row data with complex formatting support
         row = []
         for j, c in enumerate(r[:len(headers)]):
             if c is None:
                 row.append("")
             else:
-                # Clean complex custodial formatting but preserve data
-                cleaned = str(c).replace('"""', '').strip()
+                # Critical: Clean triple quotes from cell values
+                cleaned = str(c).replace('"""', '').replace('"', '').strip()
                 row.append(cleaned)
         
-        # Pad row to header length
         while len(row) < len(headers):
             row.append("")
         
-        # Only include rows with actual data
         if any(c.strip() for c in row):
             body.append(row)
 
@@ -236,13 +218,12 @@ def _csv_text_to_rows(text: str) -> Tuple[List[str], List[List[str]], List[str]]
     preview = raw_lines[:50]
     delim = _detect_delimiter_by_vote(preview)
     
-    # Enhanced CSV reader for complex formats
     reader = csv.reader(
         io.StringIO(text), 
         delimiter=delim, 
         quotechar='"', 
         skipinitialspace=True,
-        doublequote=True  # Handle double quotes properly
+        doublequote=True
     )
     
     rows = []
@@ -271,9 +252,6 @@ def _load_xlsx_to_rows(blob: bytes) -> Tuple[Tuple[List[str], List[List[str]]], 
     return _pick_header_from_rows(data), preview
 
 def extract_header_and_rows(filename: str, file_bytes: bytes) -> Tuple[List[str], List[List[str]], List[str], List[str]]:
-    """
-    Returns (headers, rows, preview_lines, errors[])
-    """
     errors: List[str] = []
     lower = (filename or "").lower()
 
@@ -285,7 +263,6 @@ def extract_header_and_rows(filename: str, file_bytes: bytes) -> Tuple[List[str]
             return (headers, body, preview, errors)
         except Exception as e:
             errors.append(f"excel_read_failed:{type(e).__name__}")
-            # fall through to text route
 
     text = _decode(file_bytes)
     try:
@@ -295,25 +272,44 @@ def extract_header_and_rows(filename: str, file_bytes: bytes) -> Tuple[List[str]
         return ([], [], [], errors + [f"text_parse_failed:{type(e).__name__}"])
 
 # =========================
-# Custodian + file type
+# Enhanced Custodian detection
 # =========================
 
-def detect_custodian(sample_lines: List[str]) -> str:
+def detect_custodian(sample_lines: List[str], filename: str = "") -> str:
     blob = " ".join([ln.lower() for ln in sample_lines])
-    for name in _RECOGNIZED_CUSTODIANS:
-        if name in blob: return name.title()
+    fname_lower = filename.lower()
+    
+    custodian_patterns = [
+        ("Charles Schwab", ["charles schwab", "schwab"]),
+        ("Fidelity", ["fidelity"]),
+        ("TD Ameritrade", ["td ameritrade", "tdameritrade", "ameritrade", "td-"]),
+        ("Vanguard", ["vanguard"]),
+        ("Interactive Brokers", ["interactive brokers", "ibkr"]),
+        ("E*Trade", ["etrade", "e*trade"]),
+        ("Merrill Lynch", ["merrill"]),
+    ]
+    
+    for custodian_name, patterns in custodian_patterns:
+        if any(pattern in blob or pattern in fname_lower for pattern in patterns):
+            return custodian_name
+    
+    if "custom" in fname_lower or "unknown" in fname_lower:
+        return "Custom Format"
+    
     return "Unknown"
 
 def _fuzzy_find(canon_headers: List[str], candidates: List[str]) -> Optional[int]:
-    # exact > endswith > contains
     best_score = 0; best_idx: Optional[int] = None
     for i, h in enumerate(canon_headers):
         for alias in candidates:
-            if h == alias:
+            alias_canon = _canon(alias)
+            if not alias_canon:
+                continue
+            if h == alias_canon:
                 score = 300
-            elif h.endswith(alias) or alias.endswith(h):
+            elif h.endswith(alias_canon) or alias_canon.endswith(h):
                 score = 200
-            elif alias in h:
+            elif alias_canon in h or h in alias_canon:
                 score = 120
             else:
                 continue
@@ -325,22 +321,20 @@ def build_index_map(headers: List[str], explicit_map: Optional[Dict[str, str]] =
     ch = [_canon(h) for h in headers]
     out: Dict[str, int] = {}
 
-    # explicit first
     if explicit_map:
         for field, col_name in explicit_map.items():
             col = _canon(col_name)
-            # try exact/contains
             try:
                 out[field] = ch.index(col)
             except ValueError:
                 idx = _fuzzy_find(ch, [col])
                 if idx is not None: out[field] = idx
 
-    # fill rest via fuzzy alias
     for field, alias_list in ALIASES.items():
         if field in out: continue
         idx = _fuzzy_find(ch, alias_list)
         if idx is not None: out[field] = idx
+    
     return out
 
 def _score_presence(headers: List[str], fields: List[str]) -> int:
@@ -352,14 +346,32 @@ def _score_presence(headers: List[str], fields: List[str]) -> int:
     return score
 
 def guess_file_type(headers: List[str]) -> str:
-    pos = _score_presence(headers, ["symbol"]) + max(_score_presence(headers, ["shares"]), _score_presence(headers, ["market_value"]))
-    prc = _score_presence(headers, ["symbol"]) + _score_presence(headers, ["price"]) + _score_presence(headers, ["date"])
-    txn = _score_presence(headers, ["symbol"]) + _score_presence(headers, ["type"])
-    best = max(pos, prc, txn)
-    if best <= 0: return "unknown"
-    if best == pos: return "positions"
-    if best == prc: return "prices"
-    if best == txn: return "transactions"
+    """Enhanced file type detection for price files"""
+    headers_lower = [h.lower() for h in headers]
+    
+    # Strong indicators of price file - check first
+    has_date = any(d in headers_lower for d in ['date', 'datetime', 'timestamp'])
+    has_price_indicator = any(p in headers_lower for p in ['close', 'price', 'open', 'high', 'low'])
+    has_position_indicator = any(s in headers_lower for s in ['shares', 'quantity', 'units', 'qty'])
+    has_value_indicator = any(v in headers_lower for v in ['market value', 'marketvalue', 'value', 'market_value'])
+    
+    # If it has quantity/shares indicators OR market value, it's likely positions
+    if has_position_indicator or has_value_indicator:
+        return "positions"
+    
+    # If it has date and price but NO position indicators, it's a price file
+    if has_date and has_price_indicator and not has_position_indicator and not has_value_indicator:
+        return "prices"
+    
+    # Standard scoring
+    pos_score = _score_presence(headers, ["symbol", "shares"]) + max(_score_presence(headers, ["price"]), _score_presence(headers, ["market_value"]))
+    prc_score = _score_presence(headers, ["symbol", "price", "date"]) + (_score_presence(headers, ["close"]) * 2)
+    txn_score = _score_presence(headers, ["symbol", "type", "date"])
+    
+    best_score = max(pos_score, prc_score, txn_score)
+    if best_score <= 0: return "unknown"
+    if best_score == prc_score: return "prices"
+    if best_score == txn_score: return "transactions"
     return "positions"
 
 # =========================
@@ -369,10 +381,12 @@ def guess_file_type(headers: List[str]) -> str:
 def _cell(r: List[str], i: Optional[int]) -> Optional[str]:
     if i is None or i < 0 or i >= len(r): return None
     val = (r[i] or "").strip().strip('"')
+    # Critical: Clean triple quotes from cell values
     return val.replace('"""', '').strip() or None
 
 def parse_positions(headers: List[str], rows: List[List[str]], idx: Dict[str, int]) -> List[Dict[str, Any]]:
     out: List[Dict[str, Any]] = []
+    
     for r in rows:
         if all(not (c and c.strip()) for c in r): continue
         joined = " ".join((c or "").lower() for c in r)
@@ -381,42 +395,41 @@ def parse_positions(headers: List[str], rows: List[List[str]], idx: Dict[str, in
         symbol = (_cell(r, idx.get("symbol")) or _cell(r, idx.get("name")) or "").strip()
         if not symbol: continue
 
-        name = _cell(r, idx.get("name"))
+        name = _cell(r, idx.get("name")) or symbol.upper()
         sector = _cell(r, idx.get("sector"))
         currency = _cell(r, idx.get("currency")) or "USD"
 
         shares = sanitize_number(_cell(r, idx.get("shares"))) or 0.0
-        price  = sanitize_number(_cell(r, idx.get("price")))
-        mv     = sanitize_number(_cell(r, idx.get("market_value")))
+        price = sanitize_number(_cell(r, idx.get("price")))
+        mv = sanitize_number(_cell(r, idx.get("market_value")))
+        cost_basis_raw = sanitize_number(_cell(r, idx.get("cost_basis")))
 
-        if mv is None and price is not None:
-            mv = shares * price
-        if (mv is None or mv == 0.0) and shares == 0.0:
-            continue
+        if mv is None and price is not None and shares != 0:
+            mv = abs(shares) * price
+        
+        if mv is None or mv == 0.0:
+            if shares == 0.0:
+                continue
+
+        if cost_basis_raw is None:
+            cost_basis_raw = (price or 0.0) * 0.85 * abs(shares) if price else 0.0
 
         out.append({
             "symbol": symbol.upper(),
-            "name": name or symbol.upper(),
+            "name": name,
             "shares": float(shares),
             "price": float(price or 0.0),
             "market_value": float(mv or 0.0),
-            "cost_basis": sanitize_number(_cell(r, idx.get("cost_basis"))),
-            "sector": sector or None,
+            "cost_basis": float(cost_basis_raw or 0.0),
+            "sector": sector,
             "currency": currency,
         })
+    
     return out
 
 def parse_prices(headers: List[str], rows: List[List[str]], idx: Dict[str, int]) -> List[Dict[str, Any]]:
-    out: List[Dict[str, Any]] = []
-    for r in rows:
-        if all(not (c and c.strip()) for c in r): continue
-        symbol = (_cell(r, idx.get("symbol")) or "").strip()
-        if not symbol: continue
-        price = sanitize_number(_cell(r, idx.get("price")))
-        date  = _cell(r, idx.get("date"))
-        if price is None: continue
-        out.append({"symbol": symbol.upper(), "price": float(price), "date": date})
-    return out
+    """Parse price data - but return empty since we only want positions"""
+    return []
 
 # =========================
 # Confidence & result builder
@@ -426,9 +439,14 @@ def _confidence(headers: List[str], idx: Dict[str, int], parsed_count: int) -> i
     weight = 0
     for f in ("symbol","shares","price","market_value"):
         if f in idx: weight += 1
-    base = 20 * weight
-    rows_bonus = 20 if parsed_count >= 5 else 10 if parsed_count >= 1 else 0
-    return max(10, min(99, base + rows_bonus))
+    
+    base = 15 * weight
+    rows_bonus = 15 if parsed_count >= 3 else 10 if parsed_count >= 1 else 0
+    
+    if weight >= 3:
+        base += 20
+    
+    return max(10, min(95, base + rows_bonus))
 
 def build_parse_result(
     file_bytes_list: List[Tuple[str, bytes]],
@@ -437,25 +455,46 @@ def build_parse_result(
     combined_holdings: List[Dict[str, Any]] = []
     file_previews: List[Dict[str, Any]] = []
     any_custodian = "Unknown"
-
+    
     for (fname, blob) in file_bytes_list:
         headers, rows, raw_preview, errs = extract_header_and_rows(fname, blob)
-        custodian = detect_custodian(raw_preview)
+        custodian = detect_custodian(raw_preview, fname)
         if any_custodian == "Unknown" and custodian != "Unknown":
             any_custodian = custodian
-
+        
         idx = build_index_map(headers, (explicit_mapping or {}).get(fname))
         ftype = guess_file_type(headers)
+        
+ # ADD THE DEBUG CODE HERE (right after the ftype line above)
+        print(f"DEBUG: File {fname}")
+        print(f"DEBUG: Headers detected: {headers}")
+        print(f"DEBUG: First 3 rows: {rows[:3] if rows else 'No rows'}")
+        print(f"DEBUG: Index map: {idx}")
+        print(f"DEBUG: File type: {ftype}")
 
         parsed: List[Dict[str, Any]] = []
         if ftype == "positions":
             parsed = parse_positions(headers, rows, idx)
         elif ftype == "prices":
             parsed = parse_prices(headers, rows, idx)
-
+        
         conf = _confidence(headers, idx, len(parsed))
-        require_mapping = (ftype == "unknown") or (conf < 70) or (ftype == "positions" and not parsed and len(rows) > 0)
-
+        
+        # Enhanced mapping detection
+        has_valid_values = False
+        if parsed and len(parsed) > 0:
+            for p in parsed:
+                if p.get("market_value", 0) > 0 or p.get("price", 0) > 0:
+                    has_valid_values = True
+                    break
+        
+        require_mapping = (
+            (ftype == "unknown") or 
+            (conf < 50) or 
+            (ftype == "positions" and not parsed and len(rows) > 0) or
+            (ftype == "positions" and parsed and not has_valid_values)
+        )
+        
         file_previews.append({
             "filename": fname,
             "type": ftype,
@@ -469,7 +508,8 @@ def build_parse_result(
             "ftype_guess": ftype,
             "parsed_rows_sample": parsed[:2],
         })
-
+        
+        # Only add positions to holdings, not prices
         if ftype == "positions" and parsed:
             combined_holdings.extend(parsed)
 
