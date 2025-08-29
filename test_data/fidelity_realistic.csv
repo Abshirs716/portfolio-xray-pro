@@ -1,0 +1,4 @@
+Account Number,Symbol,Security Name,Quantity,Price,Market Value,Cost Basis,Sector,Currency
+123456789,VTI,Vanguard Total Stock Market ETF,200,235.50,47100.00,42800.00,ETF,USD
+123456789,COST,Costco Wholesale Corp,30,845.25,25357.50,22500.00,Consumer Staples,USD
+123456789,AMD,Advanced Micro Devices,100,142.60,14260.00,15800.00,Technology,USD

@@ -1,4 +1,4 @@
-// src/components/portfolio/PortfolioDashboard.tsx - Professional Portfolio Dashboard with TRANSPARENCY
+// src/components/portfolio/PortfolioDashboard.tsx - Portfolio Dashboard with REAL Sector Data
 import React, { useState } from 'react';
 import { BarChart3, PieChart, TrendingUp, TrendingDown, DollarSign, Target, Award, Activity, Eye, Calculator } from 'lucide-react';
 import { Holding } from '../../types/portfolio';
@@ -12,11 +12,10 @@ export const PortfolioDashboard: React.FC<PortfolioDashboardProps> = ({ holdings
   const [selectedView, setSelectedView] = useState<'overview' | 'sectors' | 'performance'>('overview');
   const [showCalculations, setShowCalculations] = useState(false);
 
-  // Calculate portfolio metrics with detailed calculations - FIXED
+  // Calculate portfolio metrics with detailed calculations
   const totalValue = holdings.reduce((sum, holding) => sum + holding.marketValue, 0);
   const totalCost = holdings.reduce((sum, holding) => {
-    // Use totalCost if available, otherwise calculate from costBasis * shares
-    const positionCost = holding.totalCost || (holding.costBasis * holding.shares);
+    const positionCost = holding.totalCost || holding.cost_basis || (holding.costBasis * holding.shares);
     return sum + positionCost;
   }, 0);
   const totalGain = totalValue - totalCost;
@@ -26,26 +25,58 @@ export const PortfolioDashboard: React.FC<PortfolioDashboardProps> = ({ holdings
   const sortedHoldings = [...holdings].sort((a, b) => b.marketValue - a.marketValue);
   const topHoldings = sortedHoldings.slice(0, 5);
 
-  // Calculate winners and losers - FIXED to handle missing unrealizedGain fields
+  // Calculate winners and losers
   const winnersAndLosers = holdings.map(h => ({
     ...h,
-    unrealizedGain: h.unrealizedGain || (h.marketValue - (h.totalCost || h.costBasis * h.shares)),
-    unrealizedGainPercent: h.unrealizedGainPercent || ((h.totalCost || h.costBasis * h.shares) > 0 ? 
-      ((h.marketValue - (h.totalCost || h.costBasis * h.shares)) / (h.totalCost || h.costBasis * h.shares)) * 100 : 0)
+    unrealizedGain: h.unrealizedGain || (h.marketValue - (h.totalCost || h.cost_basis || h.costBasis * h.shares)),
+    unrealizedGainPercent: h.unrealizedGainPercent || ((h.totalCost || h.cost_basis || h.costBasis * h.shares) > 0 ? 
+      ((h.marketValue - (h.totalCost || h.cost_basis || h.costBasis * h.shares)) / (h.totalCost || h.cost_basis || h.costBasis * h.shares)) * 100 : 0)
   }));
   
   const winners = winnersAndLosers.filter(h => h.unrealizedGain > 0).sort((a, b) => b.unrealizedGainPercent - a.unrealizedGainPercent).slice(0, 3);
   const losers = winnersAndLosers.filter(h => h.unrealizedGain < 0).sort((a, b) => a.unrealizedGainPercent - b.unrealizedGainPercent).slice(0, 3);
 
-  // Mock sector allocation (in real app, would map symbols to sectors)
-  const sectorData = [
-    { sector: 'Technology', value: totalValue * 0.35, percentage: 35, color: 'bg-blue-500' },
-    { sector: 'Healthcare', value: totalValue * 0.18, percentage: 18, color: 'bg-green-500' },
-    { sector: 'Financial', value: totalValue * 0.15, percentage: 15, color: 'bg-purple-500' },
-    { sector: 'Consumer', value: totalValue * 0.12, percentage: 12, color: 'bg-yellow-500' },
-    { sector: 'Industrial', value: totalValue * 0.10, percentage: 10, color: 'bg-red-500' },
-    { sector: 'Other', value: totalValue * 0.10, percentage: 10, color: 'bg-gray-500' }
-  ];
+  // REAL SECTOR ALLOCATION FROM ACTUAL DATA
+  const calculateSectorAllocation = () => {
+    const sectorMap = new Map<string, number>();
+    
+    holdings.forEach(holding => {
+      // Get sector from holding, default to "Other" if not specified
+      const sector = holding.sector || 'Other';
+      const currentValue = sectorMap.get(sector) || 0;
+      sectorMap.set(sector, currentValue + holding.marketValue);
+    });
+
+    // Convert to array and sort by value
+    const sectors = Array.from(sectorMap.entries())
+      .map(([sector, value]) => ({
+        sector,
+        value,
+        percentage: totalValue > 0 ? (value / totalValue) * 100 : 0
+      }))
+      .sort((a, b) => b.value - a.value);
+
+    // Assign colors to sectors
+    const colors = [
+      'bg-blue-500',
+      'bg-green-500',
+      'bg-purple-500',
+      'bg-yellow-500',
+      'bg-red-500',
+      'bg-indigo-500',
+      'bg-pink-500',
+      'bg-teal-500',
+      'bg-orange-500',
+      'bg-gray-500'
+    ];
+
+    return sectors.map((s, index) => ({
+      ...s,
+      color: colors[index % colors.length]
+    }));
+  };
+
+  const sectorData = calculateSectorAllocation();
 
   // Calculate concentration risk with full transparency
   const concentrationCalculations = {
@@ -177,52 +208,19 @@ export const PortfolioDashboard: React.FC<PortfolioDashboardProps> = ({ holdings
               <p className="text-xs font-bold text-green-600 mt-1">Total: {formatCurrency(totalValue)}</p>
             </div>
 
-            {/* Win Rate Calculation */}
-            <div className={`rounded border p-4 transition-all duration-300 ${theme.calcBg}`}>
-              <p className="text-xs font-bold text-blue-600 mb-2">WIN RATE CALCULATION:</p>
-              <p className={`text-xs transition-colors duration-300 ${theme.textSecondary}`}>Winning Positions ÷ Total Positions × 100</p>
-              <p className={`text-xs transition-colors duration-300 ${theme.textSecondary}`}>Winning Positions: {performanceCalculations.winningPositions}</p>
-              <p className={`text-xs transition-colors duration-300 ${theme.textSecondary}`}>Total Positions: {performanceCalculations.totalPositions}</p>
-              <p className="text-xs font-bold text-blue-600 mt-1">
-                Win Rate: {performanceCalculations.winningPositions} ÷ {performanceCalculations.totalPositions} × 100 = {performanceCalculations.winRate.toFixed(1)}%
-              </p>
-            </div>
-
-            {/* Concentration Calculation */}
-            <div className={`rounded border p-4 transition-all duration-300 ${theme.calcBg}`}>
-              <p className="text-xs font-bold text-purple-600 mb-2">CONCENTRATION CALCULATION:</p>
-              <p className={`text-xs transition-colors duration-300 ${theme.textSecondary}`}>Top 5 Holdings ÷ Total Portfolio × 100</p>
-              <p className={`text-xs transition-colors duration-300 ${theme.textSecondary}`}>Top 5 Value: {formatCurrency(concentrationCalculations.top5Value)}</p>
-              <p className={`text-xs transition-colors duration-300 ${theme.textSecondary}`}>Total Value: {formatCurrency(totalValue)}</p>
-              <p className="text-xs font-bold text-purple-600 mt-1">
-                Concentration: {formatCurrency(concentrationCalculations.top5Value)} ÷ {formatCurrency(totalValue)} = {concentrationCalculations.top5Percent.toFixed(1)}%
-              </p>
-            </div>
-
-            {/* Average Winner Calculation */}
-            <div className={`rounded border p-4 transition-all duration-300 ${theme.calcBg}`}>
-              <p className="text-xs font-bold text-emerald-600 mb-2">AVERAGE WINNER CALCULATION:</p>
-              <p className={`text-xs transition-colors duration-300 ${theme.textSecondary}`}>Sum of Winner Returns ÷ Number of Winners</p>
-              {winners.slice(0, 2).map((winner, index) => (
-                <p key={index} className={`text-xs transition-colors duration-300 ${theme.textSecondary}`}>
-                  {winner.symbol}: +{winner.unrealizedGainPercent.toFixed(1)}%
-                </p>
-              ))}
-              <p className="text-xs font-bold text-emerald-600 mt-1">
-                Avg Winner: {performanceCalculations.avgWinner.toFixed(1)}%
-              </p>
-            </div>
-
-            {/* Sector Allocation Calculation */}
+            {/* Sector Breakdown Calculation */}
             <div className={`rounded border p-4 transition-all duration-300 ${theme.calcBg}`}>
               <p className="text-xs font-bold text-orange-600 mb-2">SECTOR ALLOCATION:</p>
-              <p className={`text-xs transition-colors duration-300 ${theme.textSecondary}`}>Based on sector classification mapping</p>
-              <p className={`text-xs transition-colors duration-300 ${theme.textSecondary}`}>Technology: {formatCurrency(sectorData[0].value)} (35%)</p>
-              <p className={`text-xs transition-colors duration-300 ${theme.textSecondary}`}>Healthcare: {formatCurrency(sectorData[1].value)} (18%)</p>
-              <p className="text-xs font-bold text-orange-600 mt-1">6 sectors total</p>
+              <p className={`text-xs transition-colors duration-300 ${theme.textSecondary}`}>Grouped by sector classification</p>
+              {sectorData.slice(0, 3).map((sector, index) => (
+                <p key={index} className={`text-xs transition-colors duration-300 ${theme.textSecondary}`}>
+                  {sector.sector}: {formatCurrency(sector.value)} ({sector.percentage.toFixed(1)}%)
+                </p>
+              ))}
+              <p className="text-xs font-bold text-orange-600 mt-1">{sectorData.length} sectors total</p>
             </div>
 
-            {/* Return Calculation - FIXED */}
+            {/* Return Calculation */}
             <div className={`rounded border p-4 transition-all duration-300 ${theme.calcBg}`}>
               <p className="text-xs font-bold text-red-600 mb-2">RETURN CALCULATION:</p>
               <p className={`text-xs transition-colors duration-300 ${theme.textSecondary}`}>(Current Value - Total Cost) ÷ Total Cost × 100</p>
@@ -236,7 +234,7 @@ export const PortfolioDashboard: React.FC<PortfolioDashboardProps> = ({ holdings
         </div>
       )}
 
-      {/* Key Metrics Row - Better Spacing */}
+      {/* Key Metrics Row */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
         <div className={`rounded-lg p-6 transition-all duration-300 hover:shadow-lg ${theme.metricBg}`}>
           <div className="flex items-center justify-between mb-3">
@@ -295,7 +293,7 @@ export const PortfolioDashboard: React.FC<PortfolioDashboardProps> = ({ holdings
         </div>
       </div>
 
-      {/* Dynamic Content Based on Selected View - Better Spacing */}
+      {/* Dynamic Content Based on Selected View */}
       {selectedView === 'overview' && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Top Holdings */}
@@ -409,7 +407,7 @@ export const PortfolioDashboard: React.FC<PortfolioDashboardProps> = ({ holdings
                       {formatCurrency(sector.value)}
                     </span>
                     <span className={`font-semibold transition-colors duration-300 ${theme.textPrimary} w-16 text-right text-lg`}>
-                      {sector.percentage}%
+                      {sector.percentage.toFixed(1)}%
                     </span>
                   </div>
                 </div>
@@ -422,29 +420,34 @@ export const PortfolioDashboard: React.FC<PortfolioDashboardProps> = ({ holdings
             <h4 className={`text-xl font-semibold mb-6 transition-colors duration-300 ${theme.textPrimary}`}>
               Diversification Analysis
             </h4>
-            <div className="relative mb-6">
-              {/* Simple visual representation */}
-              <div className="grid grid-cols-6 gap-2 h-40">
-                {sectorData.map((sector, index) => (
-                  <div key={sector.sector} className="flex flex-col">
-                    <div 
-                      className={`${sector.color} rounded-t transition-all duration-500`}
-                      style={{ height: `${sector.percentage * 4}px` }}
-                    ></div>
-                    <span className={`text-xs mt-2 transition-colors duration-300 ${theme.textMuted} text-center`}>
-                      {sector.sector.substring(0, 4)}
-                    </span>
+            
+            {/* Visual bar chart */}
+            <div className="space-y-4 mb-6">
+              {sectorData.map((sector, index) => (
+                <div key={sector.sector} className="flex items-center space-x-3">
+                  <div className={`w-24 text-sm transition-colors duration-300 ${theme.textSecondary} text-right truncate`}>
+                    {sector.sector}
                   </div>
-                ))}
-              </div>
+                  <div className="flex-1 bg-gray-200 dark:bg-gray-700 rounded-full h-6 relative">
+                    <div 
+                      className={`${sector.color} h-6 rounded-full transition-all duration-500`}
+                      style={{ width: `${sector.percentage}%` }}
+                    >
+                      <span className="absolute right-2 top-1 text-xs text-white font-semibold">
+                        {sector.percentage.toFixed(1)}%
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
             
             <div className={`p-4 rounded border transition-all duration-300 ${
               isDarkMode ? 'bg-gray-800 border-gray-600' : 'bg-white border-gray-200'
             }`}>
               <p className={`text-sm transition-colors duration-300 ${theme.textSecondary}`}>
-                <strong>Diversification Score:</strong> {sectorData.length > 5 ? 'Excellent' : 'Good'} - 
-                Portfolio is spread across {sectorData.length} sectors with largest allocation at {Math.max(...sectorData.map(s => s.percentage))}%.
+                <strong>Diversification Score:</strong> {sectorData.length > 5 ? 'Excellent' : sectorData.length > 3 ? 'Good' : 'Needs Improvement'} - 
+                Portfolio is spread across {sectorData.length} sectors with largest allocation at {Math.max(...sectorData.map(s => s.percentage)).toFixed(1)}%.
               </p>
             </div>
           </div>
@@ -523,7 +526,7 @@ export const PortfolioDashboard: React.FC<PortfolioDashboardProps> = ({ holdings
         </div>
       )}
 
-      {/* Performance Summary - Better Spacing */}
+      {/* Performance Summary */}
       <div className={`mt-10 rounded-lg p-6 transition-all duration-300 ${
         isDarkMode ? 'bg-gradient-to-r from-blue-900 to-indigo-900' : 'bg-gradient-to-r from-blue-50 to-indigo-50'
       }`}>
@@ -547,7 +550,7 @@ export const PortfolioDashboard: React.FC<PortfolioDashboardProps> = ({ holdings
           </div>
           <div>
             <div className="text-2xl font-bold text-green-600">
-              +{performanceCalculations.avgWinner.toFixed(1)}%
+              {winners.length > 0 ? '+' : ''}{performanceCalculations.avgWinner.toFixed(1)}%
             </div>
             <div className={`text-sm mt-1 transition-colors duration-300 ${theme.textSecondary}`}>Avg Winner</div>
           </div>

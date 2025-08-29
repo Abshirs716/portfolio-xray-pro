@@ -51,9 +51,15 @@ function pickHeader(headers: string[] = [], candidates: string[]): string | unde
   for (let i=0;i<ch.length;i++){
     const h = ch[i];
     for (const a of candidates){
-      if (h === a) { if (300>bestScore){bestScore=300;bestIdx=i;} }
-      else if (h.endsWith(a) || a.endsWith(h)) { if (200>bestScore){bestScore=200;bestIdx=i;} }
-      else if (h.includes(a)) { if (120>bestScore){bestScore=120;bestIdx=i;} }
+      let score = 0;
+      if (h === a) { score = 300; }
+      else if (h.endsWith(a) || a.endsWith(h)) { score = 200; }
+      else if (h.includes(a)) { score = 120; }
+      
+      if (score > bestScore) {
+        bestScore = score;
+        bestIdx = i;
+      }
     }
   }
   return bestIdx >= 0 ? headers[bestIdx] : undefined;
@@ -112,14 +118,21 @@ const UniversalUploaderLite: React.FC<Props> = ({ onDataParsed, isDarkMode }) =>
     try {
       // 1st pass
       let result: ParseResult = await postUpload();
+      console.log('[First pass result]:', result);
+      
       // If zero positions but mapping is required → build auto mapping and retry once
       const filesInfo = result?.metadata?.files || [];
       const needsMapping = filesInfo.some(f => f.require_mapping);
+      console.log('[Needs mapping check]:', { positions: result.totals.positions_count, needsMapping, autoMapped });
+      
       if ((result.totals.positions_count === 0 || needsMapping) && !autoMapped) {
         const mapping = buildAutoMapping(filesInfo);
+        console.log('[Auto mapping built]:', mapping);
+        
         if (Object.keys(mapping).length > 0) {
           setAutoMapped(true);
           result = await postUpload(mapping); // 2nd pass with mapping
+          console.log('[Second pass result]:', result);
         }
       }
       setParseResult(result);
@@ -135,7 +148,6 @@ const UniversalUploaderLite: React.FC<Props> = ({ onDataParsed, isDarkMode }) =>
   const formatCurrency = (value: number) =>
     new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 }).format(value);
 
-  // (styles omitted for brevity – keep your existing ones)
   const uploadZoneStyle: React.CSSProperties = {
     border: '2px dashed #4a5568', borderRadius: '8px', padding: '2rem', textAlign: 'center',
     cursor: 'pointer', backgroundColor: isDarkMode ? '#1a202c' : '#f7fafc', transition: 'all 0.3s',
