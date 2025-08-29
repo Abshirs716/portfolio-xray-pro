@@ -16,7 +16,7 @@ export const PortfolioDashboard: React.FC<PortfolioDashboardProps> = ({ holdings
   const totalValue = holdings.reduce((sum, holding) => sum + holding.marketValue, 0);
   const totalCost = holdings.reduce((sum, holding) => {
     // Use totalCost if available, otherwise calculate from costBasis * shares
-    const positionCost = holding.totalCost || (holding.costBasis * holding.shares);
+    const positionCost = holding.totalCost || holding.cost_basis || (holding.costBasis * holding.shares);
     return sum + positionCost;
   }, 0);
   const totalGain = totalValue - totalCost;

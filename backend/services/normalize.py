@@ -385,7 +385,9 @@ def _cell(r: List[str], i: Optional[int]) -> Optional[str]:
     return val.replace('"""', '').strip() or None
 
 def parse_positions(headers: List[str], rows: List[List[str]], idx: Dict[str, int]) -> List[Dict[str, Any]]:
+    print(f"DEBUG: parse_positions called with {len(rows)} rows")
     out: List[Dict[str, Any]] = []
+    # rest of the function continues...
     
     for r in rows:
         if all(not (c and c.strip()) for c in r): continue
@@ -403,7 +405,8 @@ def parse_positions(headers: List[str], rows: List[List[str]], idx: Dict[str, in
         price = sanitize_number(_cell(r, idx.get("price")))
         mv = sanitize_number(_cell(r, idx.get("market_value")))
         cost_basis_raw = sanitize_number(_cell(r, idx.get("cost_basis")))
-
+        print(f"DEBUG Cost: Symbol={symbol}, Raw='{_cell(r, idx.get('cost_basis'))}', Sanitized={cost_basis_raw}")
+        
         if mv is None and price is not None and shares != 0:
             mv = abs(shares) * price
         
@@ -425,6 +428,10 @@ def parse_positions(headers: List[str], rows: List[List[str]], idx: Dict[str, in
             "currency": currency,
         })
     
+    print(f"DEBUG: parse_positions returning {len(out)} holdings")
+    if out:
+        print(f"DEBUG: First holding cost_basis: {out[0].get('cost_basis')}")
+
     return out
 
 def parse_prices(headers: List[str], rows: List[List[str]], idx: Dict[str, int]) -> List[Dict[str, Any]]:
@@ -465,13 +472,13 @@ def build_parse_result(
         idx = build_index_map(headers, (explicit_mapping or {}).get(fname))
         ftype = guess_file_type(headers)
         
- # ADD THE DEBUG CODE HERE (right after the ftype line above)
+        # Debug output
         print(f"DEBUG: File {fname}")
         print(f"DEBUG: Headers detected: {headers}")
         print(f"DEBUG: First 3 rows: {rows[:3] if rows else 'No rows'}")
         print(f"DEBUG: Index map: {idx}")
         print(f"DEBUG: File type: {ftype}")
-
+        
         parsed: List[Dict[str, Any]] = []
         if ftype == "positions":
             parsed = parse_positions(headers, rows, idx)
@@ -522,6 +529,8 @@ def build_parse_result(
         for h in combined_holdings:
             h["weight"] = 0.0
 
+    print(f"DEBUG: Final result cost basis values: {[h.get('cost_basis') for h in combined_holdings[:3]]}")
+    
     return {
         "holdings": combined_holdings,
         "totals": {"total_value": total_value, "positions_count": len(combined_holdings)},
@@ -533,3 +542,4 @@ def build_parse_result(
             "batch_mode": True,
         }
     }
+        
