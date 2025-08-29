@@ -106,7 +106,7 @@ const UniversalUploaderLite: React.FC<Props> = ({ onDataParsed, isDarkMode }) =>
     if (mapping && Object.keys(mapping).length > 0) {
       formData.append('mapping', JSON.stringify(mapping));
     }
-    const res = await fetch('http://localhost:8000/v3/universal/upload', { method: 'POST', body: formData });
+    const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/v3/universal/upload`, { method: 'POST', body: formData });
     if (!res.ok) throw new Error(`Upload failed: ${res.statusText}`);
     return res.json();
   };
